@@ -311,6 +311,7 @@ commands:
             - test/tools/ossfuzz/strictasm_diff_ossfuzz
             - test/tools/ossfuzz/strictasm_opt_ossfuzz
             - test/tools/ossfuzz/yul_proto_diff_ossfuzz
+            - test/tools/ossfuzz/yul_proto_diff_ssa_cfg_ossfuzz
             - test/tools/ossfuzz/yul_proto_diff_custom_mutate_ossfuzz
             - test/tools/ossfuzz/yul_proto_ossfuzz
             - test/tools/ossfuzz/sol_proto_ossfuzz

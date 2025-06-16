@@ -42,7 +42,8 @@ struct FuzzerUtil
 		bool _optimize,
 		unsigned _rand,
 		bool _forceSMT,
-		bool _compileViaYul
+		bool _compileViaYul,
+		bool _ssaCfgCodegen = false
 	);
 	/// Adds the experimental SMTChecker pragma to each source file in the
 	/// source map.

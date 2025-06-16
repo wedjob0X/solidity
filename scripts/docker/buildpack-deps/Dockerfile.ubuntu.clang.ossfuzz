@@ -35,8 +35,8 @@ RUN apt-get update; \
 		git \
 		jq \
 		libbz2-dev \
-		libc++-18-dev \
-		libc++abi-18-dev \
+		libc++-dev \
+		libc++abi-dev \
 		liblzma-dev \
 		libtool \
 		lsof \
@@ -64,13 +64,11 @@ RUN apt-get update; \
 		requests \
 		tabulate;
 
-# Ensure that the expected version of Clang is installed, as the base image may update it in the future:
-# https://github.com/google/oss-fuzz/blob/5e96edbdf285045cc82dbca5600cbe994a3b1a74/infra/base-images/base-clang/checkout_build_install_llvm.sh#L57
-RUN test "$(clang -dumpversion | cut -d. -f1)" = "18" || (echo "Error: Clang 18 not found!" && exit 1)
-
 FROM base AS libraries
 
 # Boost
+# FIXME: OSSFuzz requires -nostdinc++ which needs explicit libc++ include paths.
+# See boost workaround: https://github.com/google/oss-fuzz/blob/master/projects/boost/build.sh#L19 and https://github.com/llvm/llvm-project/issues/57104#issuecomment-1649525043
 RUN set -ex; \
 	cd /usr/src; \
 	wget -q 'https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.bz2' -O boost.tar.bz2; \
@@ -78,16 +76,16 @@ RUN set -ex; \
 	tar -xf boost.tar.bz2; \
 	rm boost.tar.bz2; \
 	cd boost_1_83_0; \
-	export CXXFLAGS="-std=c++20 -nostdinc++ -I/usr/lib/llvm-18/include/c++/v1 -pthread"; \
-	export LDFLAGS="-stdlib=libc++ -L/usr/lib/llvm-18/lib"; \
+	export CXXFLAGS="$CXXFLAGS -std=c++20 -nostdinc++ -I/usr/local/include/c++/v1 -I/usr/local/include/x86_64-unknown-linux-gnu/c++/v1 -pthread"; \
+	export LDFLAGS="$LDFLAGS -stdlib=libc++ -lpthread"; \
 	./bootstrap.sh --with-toolset=clang --prefix=/usr; \
 	./b2 toolset=clang \
-		cxxflags="${CXXFLAGS}" \
-		linkflags="${LDFLAGS}" \
+		cxxflags="$CXXFLAGS" \
+		linkflags="$LDFLAGS" \
 		headers; \
 	./b2 toolset=clang \
-		cxxflags="${CXXFLAGS}" \
-		linkflags="${LDFLAGS}" \
+		cxxflags="$CXXFLAGS" \
+		linkflags="$LDFLAGS" \
 		link=static variant=release runtime-link=static \
 		system filesystem unit_test_framework program_options \
 		install -j $(($(nproc)/2)); \
@@ -187,6 +185,13 @@ RUN set -ex; \
 	cp libabicoder.a /usr/lib; \
 	cp abicoder.hpp /usr/include; \
 	rm -rf /usr/src/Yul-Isabelle
+
+# HEVM
+RUN set -ex; \
+	hevm_version="0.56.0"; \
+	wget "https://github.com/ethereum/hevm/releases/download/release/${hevm_version}/hevm-x86_64-linux" -O /usr/bin/hevm; \
+	test "$(sha256sum /usr/bin/hevm)" = "aabc7570a987bb87f1f2628ea80e284ce251ce444f36940933a1d47151d5bf09  /usr/bin/hevm"; \
+	chmod +x /usr/bin/hevm
 
 FROM base
 COPY --from=libraries /usr/lib /usr/lib

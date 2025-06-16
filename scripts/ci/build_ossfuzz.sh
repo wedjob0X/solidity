@@ -2,7 +2,7 @@
 set -ex
 
 ROOTDIR="$(realpath "$(dirname "$0")/../..")"
-BUILDDIR="${ROOTDIR}/build"
+BUILDDIR="${ROOTDIR}/build_ossfuzz"
 mkdir -p "${BUILDDIR}" && mkdir -p "$BUILDDIR/deps"
 
 function generate_protobuf_bindings

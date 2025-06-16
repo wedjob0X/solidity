@@ -79,7 +79,8 @@ void FuzzerUtil::testCompiler(
 	bool _optimize,
 	unsigned _rand,
 	bool _forceSMT,
-	bool _compileViaYul
+	bool _compileViaYul,
+	bool _ssaCfgCodegen
 )
 {
 	frontend::CompilerStack compiler;
@@ -112,6 +113,7 @@ void FuzzerUtil::testCompiler(
 	compiler.setEVMVersion(evmVersion);
 	compiler.setOptimiserSettings(optimiserSettings);
 	compiler.setViaIR(_compileViaYul);
+	compiler.setSSACFGCodegen(_ssaCfgCodegen);
 	try
 	{
 		compiler.compile();
