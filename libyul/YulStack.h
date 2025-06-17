@@ -127,7 +127,7 @@ public:
 	std::pair<MachineAssemblyObject, MachineAssemblyObject>
 	assembleWithDeployed(
 		std::optional<std::string_view> _deployName = {},
-		bool _ssaCfgCodgen = false
+		bool _ssaCfgCodegen = false
 	);
 
 	/// Run the assembly step (should only be called after parseAndAnalyze).
