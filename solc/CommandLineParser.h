@@ -245,6 +245,8 @@ struct CommandLineOptions
 		bool initialize = false;
 		ModelCheckerSettings settings;
 	} modelChecker;
+
+	bool experimental = false;
 };
 
 /// Parses the command-line arguments and produces a filled-out CommandLineOptions structure.
@@ -296,6 +298,7 @@ private:
 	void parseOutputSelection();
 
 	void checkMutuallyExclusive(std::vector<std::string> const& _optionNames);
+	void checkExperimental(std::vector<std::string> const& _optionNames);
 	size_t countEnabledOptions(std::vector<std::string> const& _optionNames) const;
 	static std::string joinOptionNames(std::vector<std::string> const& _optionNames, std::string _separator = ", ");
 
