@@ -144,15 +144,13 @@ private:
 			std::string revertPathInfo;
 			if (m_cfgRevertPaths)
 				revertPathInfo = m_cfgRevertPaths->blockAllowsAdditionOfJunk(_id) ? "fillcolor=\"#FF746C\", style=filled, " : "";
-			if (m_liveness)
+			if (false && m_liveness)
 			{
 				m_result << fmt::format(
-					"{} [{}label=\"\\\nBlock {}; ({}, max {})\\n",
+					"{} [{}label=\"\\\nBlock {}\\n",
 					formatBlockHandle(_id),
 					revertPathInfo,
-					_id.value,
-					m_liveness->topologicalSort().preOrderIndexOf(_id.value),
-					m_liveness->topologicalSort().maxSubtreePreOrderIndexOf(_id.value)
+					_id.value
 				);
 				m_result << fmt::format(
 					"LiveIn: {}\\l\\\n",

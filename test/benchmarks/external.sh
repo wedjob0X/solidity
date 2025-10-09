@@ -55,7 +55,7 @@ function benchmark_project {
     [[ $pipeline == legacy || $pipeline == ir ]] || assertFail
 
     cd "$project"
-    local foundry_command=(forge build --use "$solc" --optimize --offline --no-cache)
+    local foundry_command=(forge build --extra-output irOptimized --use "$solc" --optimize --offline --no-cache)
     [[ $pipeline == ir ]] && foundry_command+=(--via-ir)
     local time_file="../time-and-status-${project}-${pipeline}.txt"
 
@@ -77,17 +77,17 @@ function benchmark_project {
 
 benchmarks=(
     # Fastest ones first so that we get *some* output quickly
-    uniswap-v4-2022-06-16  # compiles via IR with solc >=0.8.12
-    openzeppelin-5.0.2     # compiles via IR with solc >=0.8.26
-    openzeppelin-4.9.0     # compiles via IR with solc 0.8.10-0.8.14 and >=0.8.26
-    liquity-2024-10-30     # compiles via IR with solc >=0.8.24
-    openzeppelin-4.7.0     # compiles via IR with solc >=0.8.10
-    openzeppelin-4.8.0     # compiles via IR with solc >=0.8.10
-    uniswap-v4-2024-06-06  # compiles via IR with solc >=0.8.24
-    eigenlayer-0.3.0       # compiles via IR with solc >=0.8.18
+    # uniswap-v4-2022-06-16  # compiles via IR with solc >=0.8.12
+    #openzeppelin-5.0.2     # compiles via IR with solc >=0.8.26
+    #openzeppelin-4.9.0     # compiles via IR with solc 0.8.10-0.8.14 and >=0.8.26
+    #liquity-2024-10-30     # compiles via IR with solc >=0.8.24
+    #openzeppelin-4.7.0     # compiles via IR with solc >=0.8.10
+    #openzeppelin-4.8.0     # compiles via IR with solc >=0.8.10
+    #uniswap-v4-2024-06-06  # compiles via IR with solc >=0.8.24
+    #eigenlayer-0.3.0       # compiles via IR with solc >=0.8.18
     sablier-v2-1.2.0       # compiles via IR with solc >=0.8.28 (maybe >=0.8.26)
-    seaport-1.6            # StackTooDeep via IR
-    farcaster-3.1.0        # StackTooDeep via IR
+    #seaport-1.6            # StackTooDeep via IR
+    #farcaster-3.1.0        # StackTooDeep via IR
 )
 
 mkdir -p "$BENCHMARK_DIR"
@@ -97,9 +97,9 @@ echo "|         File          | Pipeline |   Time   | Memory (peak) | Exit code 
 echo "|-----------------------|----------|---------:|--------------:|----------:|"
 
 for project in "${benchmarks[@]}"; do
-    for ((i=0; i<num_repeats; i++)); do
-        benchmark_project legacy "$project"
-    done
+    #for ((i=0; i<num_repeats; i++)); do
+    #    benchmark_project legacy "$project"
+    #done
     for ((i=0; i<num_repeats; i++)); do
         benchmark_project ir "$project"
     done
