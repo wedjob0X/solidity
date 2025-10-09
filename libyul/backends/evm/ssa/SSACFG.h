@@ -56,6 +56,7 @@ public:
 
 	struct BlockId
 	{
+		using ValueType = std::uint32_t;
 		std::uint32_t value = std::numeric_limits<std::uint32_t>::max();
 		auto operator<=>(BlockId const&) const = default;
 	};
@@ -169,7 +170,7 @@ public:
 	};
 	BlockId makeBlock(langutil::DebugData::ConstPtr _debugData)
 	{
-		BlockId blockId { m_blocks.size() };
+		BlockId blockId { static_cast<BlockId::ValueType>(m_blocks.size()) };
 		m_blocks.emplace_back(BasicBlock{std::move(_debugData), {}, {}, {}, BasicBlock::Terminated{}});
 		return blockId;
 	}
@@ -217,14 +218,14 @@ public:
 	}
 	ValueId newPhi(BlockId const _definingBlock)
 	{
-		ValueId id { m_valueInfos.size() };
+		ValueId id { static_cast<ValueId::ValueType>(m_valueInfos.size()) };
 		auto block = m_blocks.at(_definingBlock.value);
 		m_valueInfos.emplace_back(PhiValue{debugDataOf(block), _definingBlock, {}});
 		return id;
 	}
 	ValueId newVariable(BlockId const _definingBlock)
 	{
-		ValueId id { m_valueInfos.size() };
+		ValueId id { static_cast<ValueId::ValueType>(m_valueInfos.size()) };
 		auto block = m_blocks.at(_definingBlock.value);
 		m_valueInfos.emplace_back(VariableValue{debugDataOf(block), _definingBlock});
 		return id;
@@ -233,14 +234,14 @@ public:
 	{
 		if (!m_unreachableValue)
 		{
-			m_unreachableValue = ValueId { m_valueInfos.size() };
+			m_unreachableValue = ValueId { static_cast<ValueId::ValueType>(m_valueInfos.size()) };
 			m_valueInfos.emplace_back(UnreachableValue{});
 		}
 		return *m_unreachableValue;
 	}
 	ValueId newLiteral(langutil::DebugData::ConstPtr _debugData, u256 _value)
 	{
-		auto [it, inserted] = m_literals.emplace(_value, ValueId{m_valueInfos.size()});
+		auto [it, inserted] = m_literals.emplace(_value, ValueId{static_cast<ValueId::ValueType>(m_valueInfos.size())});
 		if (inserted)
 			m_valueInfos.emplace_back(LiteralValue{std::move(_debugData), _value});
 		else

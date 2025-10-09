@@ -69,8 +69,6 @@ add_library(yul
 	backends/evm/OptimizedEVMCodeTransform.cpp
 	backends/evm/OptimizedEVMCodeTransform.h
 	backends/evm/SSACFGStackShuffler.h
-	backends/evm/SSACFGStack.cpp
-	backends/evm/SSACFGStack.h
 	backends/evm/SSACFGStackLayout.cpp
 	backends/evm/SSACFGStackLayout.h
 	backends/evm/SSACFGEVMCodeTransform.cpp
@@ -93,6 +91,7 @@ add_library(yul
 	backends/evm/ssa/SSACFG.h
 	backends/evm/ssa/SSACFGBuilder.cpp
 	backends/evm/ssa/Stack.h
+	backends/evm/ssa/Stack.cpp
 	backends/evm/ssa/SSACFGBuilder.h
 	backends/evm/ssa/SSACFGJsonExporter.h
 	backends/evm/ssa/SSACFGJsonExporter.cpp

@@ -81,7 +81,7 @@ solidity::yul::ssa::ControlFlowLiveness computeLiveness(solidity::yul::ssa::Cont
 }
 
 static void BM_BuildSSACFG(benchmark::State& state) {
-	auto const& object = parse("/home/mho/dev/solidity/PoolManager_optimized.yul");
+	auto const& object = parse("/home/mho/dev/solidity/deposit.yul");
 	for (auto _ : state) {
 		auto cfg = buildSSACFG(*object);
 		benchmark::DoNotOptimize(cfg);
@@ -89,7 +89,7 @@ static void BM_BuildSSACFG(benchmark::State& state) {
 }
 
 static void BM_SSACFGLiveness(benchmark::State& state) {
-	auto const& object = parse("/home/mho/dev/solidity/PoolManager_optimized.yul");
+	auto const& object = parse("/home/mho/dev/solidity/deposit.yul");
 	auto const cfg = buildSSACFG(*object);
 	for (auto _ : state) {
 		auto cfgLiveness = computeLiveness(*cfg);
@@ -98,20 +98,17 @@ static void BM_SSACFGLiveness(benchmark::State& state) {
 }
 
 static void BM_SSACFGStackLayoutGenerator(benchmark::State& state) {
-	auto const& object = parse("/home/mho/dev/solidity/PoolManager_optimized.yul");
+	auto const& object = parse("/home/mho/dev/solidity/deposit.yul");
 	auto const cfg = buildSSACFG(*object);
 	auto const cfgLiveness = computeLiveness(*cfg);
 	for (auto _ : state) {
 		std::vector<solidity::yul::ssa::SSACFGStackLayout> layouts;
-		layouts.reserve(cfg->functionGraphs.size() + 1);
-
-		solidity::yul::ssa::TerminationPathAnalysis terminationPathAnalysis(*cfg->mainGraph, cfgLiveness.mainLiveness->topologicalSort());
-		layouts.push_back(solidity::yul::ssa::StackLayoutGenerator::generate(*cfgLiveness.mainLiveness, terminationPathAnalysis));
+		layouts.reserve(cfg->functionGraphs.size());
 
 		for (size_t i = 0; i < cfg->functionGraphs.size(); i++)
 		{
-			solidity::yul::ssa::TerminationPathAnalysis t(*cfg->functionGraphs[i], cfgLiveness.functionLiveness[i]->topologicalSort());
-			layouts.push_back(solidity::yul::ssa::StackLayoutGenerator::generate(*cfgLiveness.functionLiveness[i], t));
+			solidity::yul::ssa::TerminationPathAnalysis t(*cfg->functionGraphs[i], cfgLiveness.cfgLiveness[i]->topologicalSort());
+			layouts.push_back(solidity::yul::ssa::StackLayoutGenerator::generate(*cfgLiveness.cfgLiveness[i], t));
 		}
 
 		benchmark::DoNotOptimize(layouts);

@@ -19,8 +19,8 @@
 #pragma once
 
 #include <libyul/backends/evm/AbstractAssembly.h>
-#include <libyul/backends/evm/SSACFGStack.h>
 #include <libyul/backends/evm/ssa/SSACFG.h>
+#include <libyul/backends/evm/ssa/Stack.h>
 
 #include <libyul/Exceptions.h>
 
@@ -36,20 +36,15 @@ namespace solidity::yul::ssa
 
 struct SSACFGStackLayout
 {
-	// each operation has a current stack
-	using Stack = StackData;
-	// a slot can be some valueId or a labelId
-	using Slot = Stack::value_type;
-
 	// Each block has its own layout
 	struct BlockLayout
 	{
 		// stack layout required to enter the block
-		Stack stackIn;
+		StackData stackIn;
 		// stack layout required to execute the i-th operation in the block
-		std::vector<Stack> operationIn;
+		std::vector<StackData> operationIn;
 		// stack after the block was executed
-		Stack stackOut;
+		StackData stackOut;
 	};
 
 	// each block has a fixed list of operations
@@ -67,6 +62,7 @@ struct SSACFGStackLayout
 		return blockLayouts[_blockId.value];
 	}
 
+	CallSites callSites;
 	BlockLayouts blockLayouts;
 };
 

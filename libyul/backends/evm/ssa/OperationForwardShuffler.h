@@ -1,7 +1,6 @@
 #pragma once
 
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
-#include <libyul/backends/evm/SSACFGStack.h>
 
 #include <range/v3/algorithm/equal.hpp>
 #include <range/v3/algorithm/find.hpp>
@@ -36,7 +35,7 @@ std::map<Slot, size_t> histogram(Slots const& _slots)
 template<typename Stack, size_t ReachableStackDepth=16>
 class OperationForwardShuffler
 {
-	using Slot = Stack::Slot;
+	using Slot = StackSlot;
 
 public:
 	static void shuffle(
@@ -46,7 +45,7 @@ public:
 		bool _generateJunk
 	)
 	{
-		yulAssert(ranges::none_of(_args, [](auto const& _slot) { return std::holds_alternative<ssa::JunkSlot>(_slot); }));
+		yulAssert(ranges::none_of(_args, [](auto const& _slot) { return _slot.isJunk(); }));
 
 		constexpr std::size_t maxIterations = 1000;
 		std::size_t i = 0;
@@ -131,7 +130,7 @@ private:
 		{
 			for (auto const& _liveValueId: _liveOut | ranges::views::keys)
 			{
-				auto const [it, _] = targetMinCounts.try_emplace(Slot{_liveValueId});
+				auto const [it, _] = targetMinCounts.try_emplace(Slot::makeValueID(_liveValueId));
 				++it->second;
 			}
 		}
@@ -151,7 +150,7 @@ private:
 
 		bool requiredInTail(Slot const& _slot) const
 		{
-			return std::holds_alternative<SSACFG::ValueId>(_slot) && liveOut.contains(std::get<SSACFG::ValueId>(_slot));
+			return _slot.isValueID() && liveOut.contains(_slot.valueID());
 		}
 
 		bool distributionIsCorrect() const
@@ -263,14 +262,14 @@ private:
 				else
 				{
 					// try compressing the stack, first looking at the top
-					if (_ops.canBePopped(_stack.top()) || std::holds_alternative<JunkSlot>(_stack.top()))
+					if (_ops.canBePopped(_stack.top()) || _stack.top().isJunk())
 					{
 						_stack.pop();
 						return true;
 					}
 					for (size_t depth = 1; depth < std::min(_stack.size(), ReachableStackDepth); ++depth)
 						// junk is prioritized
-						if (std::holds_alternative<JunkSlot>(_stack.slot(depth)))
+						if (_stack.slot(depth).isJunk())
 						{
 							_stack.swap(depth);
 							_stack.pop();
@@ -348,7 +347,7 @@ private:
 		yulAssert(!_args.empty(), "From here on out, we need slots to be required in the top. Otherwise we should've terminated already.");
 
 		// If we no longer need the current stack top, we pop it
-		if (!_stack.empty() && ops.stackStats.argsCount(_stack.top()) > ops.targetArgsCount(_stack.top()) && !ops.isArgsCompatible(0, 0) && !ops.requiredInTail(_stack.top()) && !std::holds_alternative<JunkSlot>(_stack.top()))
+		if (!_stack.empty() && ops.stackStats.argsCount(_stack.top()) > ops.targetArgsCount(_stack.top()) && !ops.isArgsCompatible(0, 0) && !ops.requiredInTail(_stack.top()) && !_stack.top().isJunk())
 		{
 			// fmt::print(">>> POP\n");
 			_stack.pop();
@@ -356,10 +355,13 @@ private:
 		}
 
 		// the top is either required in args or in tail or is junk or the stack is empty
-		yulAssert(_stack.empty() || std::holds_alternative<JunkSlot>(_stack.top()) || ops.stackStats.argsCount(_stack.top()) > 0 || ops.stackStats.tailCount(_stack.top()) > 0 || ops.isArgsCompatible(0, 0));
+		yulAssert(_stack.empty() || _stack.top().isJunk() || ops.stackStats.argsCount(_stack.top()) > 0 || ops.stackStats.tailCount(_stack.top()) > 0 || ops.isArgsCompatible(0, 0));
 
 		// if the top is junk and popping it fixes more positions in args than not popping it, pop it, next step
-		if (!_stack.empty() && std::holds_alternative<JunkSlot>(_stack.top()))
+		// want: [arg3, arg2, arg1]
+		// have: [arg3, arg2, arg1, JUNK]
+		// -> popping JUNK fixes three arg positions immediately
+		if (!_stack.empty() && _stack.top().isJunk())
 		{
 			std::ptrdiff_t score = 0;
 			// check how many positions in args are currently fine
@@ -492,7 +494,7 @@ private:
 			yulAssert(false, fmt::format("stack too deep: {}", stackToString(_stack.data())));
 		}
 
-		yulAssert(_stack.empty() || std::holds_alternative<JunkSlot>(_stack.top()) || ops.isArgsCompatible(0, 0) || ops.requiredInTail(_stack.top()));
+		yulAssert(_stack.empty() || _stack.top().isJunk() || ops.isArgsCompatible(0, 0) || ops.requiredInTail(_stack.top()));
 
 		// if there is a slot that needs to be swapped up or duped but is on the verge of being unreachable, try swapping/duping it
 		if (dupDeepSlotIfRequired(ops, _stack, _generateJunk))
@@ -517,7 +519,7 @@ private:
 							if (ops.canBePopped(_stack.slot(swapDepth)))
 							{
 								_stack.swap(swapDepth);
-								if (std::holds_alternative<JunkSlot>(_stack.top()))
+								if (_stack.top().isJunk())
 									// Usually we keep a slot that is to-be-removed, if the current top is arbitrary.
 									// However, since we are in a stack-too-deep situation, pop it immediately
 									// to compress the stack (we can always push back junk in the end).
@@ -536,7 +538,7 @@ private:
 			}
 		}
 
-		yulAssert(_stack.empty() || ops.isArgsCompatible(0, 0) || ops.requiredInTail(_stack.top()) || std::holds_alternative<JunkSlot>(_stack.top()), fmt::format("Current stack: {}", stackToString(_stack.data())));
+		yulAssert(_stack.empty() || ops.isArgsCompatible(0, 0) || ops.requiredInTail(_stack.top()) || _stack.top().isJunk(), fmt::format("Current stack: {}", stackToString(_stack.data())));
 
 		// if there is any slot we need more of to populate args, dup that, next step
 		for (auto const& arg: ops.args)
@@ -590,7 +592,7 @@ private:
 
 		// If any reachable slot is merely kept, since the target slot is arbitrary, swap it up and pop it.
 		for (size_t depth: swappableDepthRange)
-			if (std::holds_alternative<JunkSlot>(_stack.slot(depth)))
+			if (_stack.slot(depth).isJunk())
 			{
 				_stack.swap(depth);
 				_stack.pop();

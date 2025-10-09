@@ -19,7 +19,8 @@
 #pragma once
 
 #include <libyul/backends/evm/StackHelpers.h>
-#include <libyul/backends/evm/SSACFGStack.h>
+
+#include <libyul/backends/evm/ssa/Stack.h>
 
 #include <range/v3/algorithm/find.hpp>
 #include <range/v3/algorithm/find_end.hpp>
@@ -127,12 +128,12 @@ struct BubbleShuffler
 
 template<
 	typename StackType,
-	auto SlotIsCompatible = [](typename StackType::Slot const& _source, typename StackType::Slot const& _target) { return std::holds_alternative<ssa::JunkSlot>(_target) || _source == _target; }
+	auto SlotIsCompatible = [](typename StackType::Slot const& _source, typename StackType::Slot const& _target) { return _target.isJunk() || _source == _target; }
 >
 struct DanielShuffler
 {
 	using Stack = StackType;
-	using StackSlot = typename Stack::Slot;
+	using StackSlot = ssa::StackSlot;
 	static void shuffle(Stack& _stack, std::set<StackSlot> const& _targetStackTail, std::vector<StackSlot> const& _targetStackTop)
 	{
 		struct ShuffleOperations
@@ -151,7 +152,7 @@ struct DanielShuffler
 				for (auto const& x: currentStack)
 					++sourceCounts[x];
 				for (auto const [i, x]: ranges::views::enumerate(targetStack))
-					if (i < currentStack.size() && std::holds_alternative<ssa::JunkSlot>(targetStack[i]))
+					if (i < currentStack.size() && targetStack[i].isJunk())
 						++targetCounts[currentStack[i]];
 					else
 						++targetCounts[x];
@@ -183,7 +184,7 @@ struct DanielShuffler
 
 			bool targetIsArbitrary(size_t _targetOffset) const
 			{
-				return _targetOffset < targetStack.size() && std::holds_alternative<ssa::JunkSlot>(targetStack.at(_targetOffset));
+				return _targetOffset < targetStack.size() && targetStack[_targetOffset].isJunk();
 			}
 
 			size_t sourceSize() const { return currentStack.size(); }
@@ -335,7 +336,7 @@ struct GreedyForwardShuffler
 {
 	using Stack = StackType;
 	using StackSlot = typename Stack::Slot;
-	
+
 	/// Simple, correct forward shuffler (INTENTIONALLY does NOT conform to SSACFGStackShuffler concept)
 	/// Key insight: handle values that are both consumed AND live-out properly
 	static Stack shuffle(
@@ -345,19 +346,19 @@ struct GreedyForwardShuffler
 	)
 	{
 		Stack result = _sourceStack;
-		
+
 		// Safety check: don't create overly deep stacks
 		if (result.size() + _requiredTop.size() > 1000) {
 			// Fall back to Daniel shuffler for very deep stacks
 			return DanielShuffler<Stack>::shuffle(_sourceStack, std::set<StackSlot>(_liveOut.begin(), _liveOut.end()), _requiredTop);
 		}
-		
+
 		// Phase 1: Ensure extra copies for values that are both consumed and live-out (with constraints)
 		ensureExtraCopiesForConsumedLiveOuts(result, _liveOut, _requiredTop);
-		
+
 		// Phase 2: Build required top in correct order (simple approach)
 		buildRequiredTop(result, _requiredTop);
-		
+
 		return result;
 	}
 
@@ -371,17 +372,17 @@ private:
 		for (auto const& requiredValue : _requiredTop) {
 			// Is this value also live-out? (will be consumed but must survive)
 			bool isAlsoLiveOut = ranges::find(_liveOut, requiredValue) != _liveOut.end();
-			
+
 			if (isAlsoLiveOut) {
 				// Count how many copies we have on stack
 				auto copyCount = std::count(_stack.data().begin(), _stack.data().end(), requiredValue);
-				
+
 				if (copyCount < 2) {
 					// Find the value's position from top of stack
 					auto stackData = _stack.data();
 					auto reverseView = stackData | ranges::views::reverse;
 					auto it = ranges::find(reverseView, requiredValue);
-					
+
 					if (it != reverseView.end()) {
 						auto distance = std::distance(reverseView.begin(), it);
 						// Only dup if within EVM's 16-element reach
@@ -394,14 +395,14 @@ private:
 			}
 		}
 	}
-	
+
 	/// Phase 2: Build required top - respecting EVM depth constraints
 	static void buildRequiredTop(Stack& _stack, std::vector<StackSlot> const& _requiredTop) {
 		if (_requiredTop.empty()) return;
-		
+
 		// Fast path: check if already correct
 		if (isTopAlreadyCorrect(_stack, _requiredTop)) return;
-		
+
 		// Build top from bottom to top (iterate requiredTop in reverse)
 		// Example: requiredTop=[v0,64] means final stack=[...,64,v0] (v0 at top)
 		// So push 64 first (ends up deeper), then v0 (ends up at top)
@@ -410,16 +411,16 @@ private:
 			_stack.pushOrDup(*it);
 		}
 	}
-	
+
 	/// Check if required top is already correct (optimization)
 	static bool isTopAlreadyCorrect(Stack const& _stack, std::vector<StackSlot> const& _requiredTop) {
 		if (_requiredTop.size() > _stack.size()) return false;
-		
+
 		// Check if top of stack matches required top exactly
 		for (size_t i = 0; i < _requiredTop.size(); ++i) {
 			size_t stackIndex = _stack.size() - 1 - i;  // Stack top = size-1
 			size_t requiredIndex = _requiredTop.size() - 1 - i;  // Required top = size-1
-			
+
 			if (_stack[stackIndex] != _requiredTop[requiredIndex]) {
 				return false;
 			}

@@ -25,8 +25,6 @@
 #include "range/v3/algorithm/equal.hpp"
 #include "range/v3/view/concat.hpp"
 
-#include <libyul/backends/evm/SSACFGStack.h>
-
 #include <algorithm>
 #include <queue>
 #include <unordered_set>
@@ -266,7 +264,7 @@ private:
 	static Cost heuristicCost(State const& _from, State const& _to)
 	{
 		Cost cost{};
-		
+
 		// 1. Histogram difference (count constraints)
 		auto it_a = _from.histogram.begin();
 		auto it_b = _to.histogram.begin();
@@ -301,7 +299,7 @@ private:
 		// 2. Head accessibility penalty
 		/*for (size_t i = 0; i < _to.numHead; ++i) {
 			auto targetSlot = _to.stackData[_to.stackData.size() - 1 - i];
-			
+
 			// Find the first occurrence of this slot in the current stack
 			auto it = std::find(_from.stackData.rbegin(), _from.stackData.rend(), targetSlot);
 			if (it != _from.stackData.rend()) {
@@ -311,7 +309,7 @@ private:
 				}
 			}
 		}*/
-		
+
 		return cost;
 	}
 
@@ -377,20 +375,20 @@ private:
 				state.stackData.pop_back();
 			}
 
-			if (_targetState.numSlot(JunkSlot{}) > _state.numSlot(JunkSlot{}))
+			if (_targetState.numSlot(Slot::makeJunk()) > _state.numSlot(Slot::makeJunk()))
 			{
 				size_t n = 0;
 				for (size_t i = 0; i < _state.stackData.size(); ++i)
 				{
 					// if we have too much of it, we may declare it junk
-					if (std::holds_alternative<SSACFG::ValueId>(_state.stackData[i]) && _targetState.numSlot(_state.stackData[i]) < _state.numSlot(_state.stackData[i]))
+					if (_state.stackData[i].isValueID() && _targetState.numSlot(_state.stackData[i]) < _state.numSlot(_state.stackData[i]))
 					{
 						result.emplace_back(_state, Operation{Operation::Type::JUNK, _state.stackData.size() - i - 1});
 						State& state = std::get<0>(result.back());
 						Stack stack(state.stackData, {}, _stack.canBeFreelyGeneratedFunction());
 						state.histogram[_state.stackData[i]] -= 1;
 						std::get<1>(result.back()).apply(stack);
-						state.histogram[JunkSlot{}] += 1;
+						state.histogram[Slot::makeJunk()] += 1;
 						++n;
 					}
 				}

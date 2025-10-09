@@ -45,12 +45,18 @@ template<typename Stack>
 void shuffleStackExact(Stack& _stack, typename Stack::Data const& _target, SSACFG const& _cfg, std::optional<SSACFG::Edge> _edge = std::nullopt)
 {
 	auto const transform = _edge ? ReversePhiFunctionTransform(_cfg, _edge->from, _edge->to) : ReversePhiFunctionTransform{};
-	auto const transformedTarget = [&]
+	typename Stack::Data transformedTarget = transform.noOp() ? _target : typename Stack::Data{};
+	if (!transform.noOp())
 	{
-		if (transform.noOp())
-			return _target;
-		return _target | ranges::views::transform(transform) | ranges::to<std::vector>;
-	}();
+		transformedTarget.reserve(_target.size());
+		for (auto const& slot: _target)
+		{
+			if (slot.isValueID())
+				transformedTarget.push_back(StackSlot::makeValueID(transform(slot.valueID())));
+			else
+				transformedTarget.push_back(slot);
+		}
+	}
 	DanielShuffler<Stack>::shuffle(
 		_stack,
 		{}, transformedTarget

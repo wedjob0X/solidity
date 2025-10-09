@@ -24,39 +24,45 @@
 #include <libyul/AST.h>
 #include <libyul/Scope.h>
 
+#include <range/v3/algorithm/find_if.hpp>
+
 namespace solidity::yul::ssa
 {
 
-namespace ssa
-{
 struct SSACFGStackLayout;
-}
-
 struct ControlFlow;
 
 struct ControlFlowLiveness{
 	explicit ControlFlowLiveness(ControlFlow const& _controlFlow);
 
 	std::reference_wrapper<ControlFlow const> controlFlow;
-	std::unique_ptr<LivenessAnalysis> mainLiveness;
-	std::vector<std::unique_ptr<LivenessAnalysis>> functionLiveness;
+	std::vector<std::unique_ptr<LivenessAnalysis>> cfgLiveness;
 
 	std::string toDot(SSACFGStackLayout const* _stackLayout) const;
 };
 
 struct ControlFlow
 {
-	std::unique_ptr<SSACFG> mainGraph{std::make_unique<SSACFG>()};
-	std::vector<std::unique_ptr<SSACFG>> functionGraphs{};
-	std::vector<std::tuple<Scope::Function const*, SSACFG const*>> functionGraphMapping{};
+	using FunctionGraphID = std::uint32_t;
 
-	SSACFG const* functionGraph(Scope::Function const* _function)
+	static FunctionGraphID constexpr mainGraphID() noexcept { return 0; }
+	SSACFG const* mainGraph() const { return functionGraph(mainGraphID()); }
+
+	SSACFG const* functionGraph(Scope::Function const* _function) const
 	{
-		auto it = std::find_if(functionGraphMapping.begin(), functionGraphMapping.end(), [_function](auto const& tup) { return _function == std::get<0>(tup); });
+		auto it = ranges::find_if(functionGraphMapping, [_function](auto const& tup) { return _function == std::get<0>(tup); });
 		if (it != functionGraphMapping.end())
 			return std::get<1>(*it);
 		return nullptr;
 	}
+
+	SSACFG const* functionGraph(FunctionGraphID const _id) const
+	{
+		return functionGraphs.at(_id).get();
+	}
+
+	std::vector<std::unique_ptr<SSACFG>> functionGraphs{};
+	std::vector<std::tuple<Scope::Function const*, SSACFG const*>> functionGraphMapping{};
 
 	std::string toDot(ControlFlowLiveness const* _liveness=nullptr, SSACFGStackLayout const* _stackLayout = nullptr) const
 	{
@@ -64,13 +70,12 @@ struct ControlFlow
 			yulAssert(&_liveness->controlFlow.get() == this);
 		std::ostringstream output;
 		output << "digraph SSACFG {\nnodesep=0.7;\ngraph[rankdir=LR, fontname=\"DejaVu Sans\"]\nnode[shape=box,fontname=\"DejaVu Sans\"];\n\n";
-		output << mainGraph->toDot(false, std::nullopt, _liveness ? _liveness->mainLiveness.get() : nullptr, _stackLayout);
 
 		for (size_t index=0; index < functionGraphs.size(); ++index)
 			output << functionGraphs[index]->toDot(
 				false,
-				index+1,
-				_liveness ? _liveness->functionLiveness[index].get() : nullptr,
+				index,
+				_liveness ? _liveness->cfgLiveness[index].get() : nullptr,
 				_stackLayout
 			);
 

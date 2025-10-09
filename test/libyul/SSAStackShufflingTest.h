@@ -21,7 +21,7 @@
 #include <test/TestCase.h>
 
 #include <libyul/backends/evm/ControlFlowGraph.h>
-#include <libyul/backends/evm/SSACFGStack.h>
+#include <libyul/backends/evm/ssa/Stack.h>
 
 #include <map>
 
@@ -29,10 +29,8 @@ using namespace solidity::frontend::test;
 
 namespace solidity::yul::test
 {
-using TestSlot = std::variant<ssa::SSACFG::ValueId, ssa::JunkSlot>;
 struct PrintCallback
 {
-	using Slot = TestSlot;
 	void swap(size_t)
 	{
 		++numOps;
@@ -41,7 +39,7 @@ struct PrintCallback
 	{
 		++numOps;
 	}
-	void push(Slot const&)
+	void push(ssa::StackSlot const&)
 	{
 		++numOps;
 	}
@@ -51,23 +49,10 @@ struct PrintCallback
 	}
 
 	size_t numOps{};
-	//todo ssa::Stack<PrintCallback>* self;
-};
-struct SlotCanBeFreelyGenerated
-{
-	using Slot = TestSlot;
-	bool operator()(Slot const& _slot) const
-	{
-		if (std::holds_alternative<ssa::SSACFG::ValueId>(_slot))
-			return m_cfg->isLiteralValue(std::get<ssa::SSACFG::ValueId>(_slot));
-		return std::holds_alternative<ssa::JunkSlot>(_slot);
-	}
-
-	ssa::SSACFG const* m_cfg;
 };
 class SSAStackShufflingTest final: public TestCase
 {
-	using Stack = ssa::Stack<TestSlot, PrintCallback, SlotCanBeFreelyGenerated>;
+	using Stack = ssa::Stack<PrintCallback>;
 public:
 	static std::unique_ptr<TestCase> create(Config const& _config)
 	{

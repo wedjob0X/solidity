@@ -16,8 +16,11 @@
 */
 // SPDX-License-Identifier: GPL-3.0
 
-#include <libyul/backends/evm/ssa/SSACFGJsonExporter.h>
+#include "range/v3/view/drop.hpp"
+
+
 #include <libyul/Utilities.h>
+#include <libyul/backends/evm/ssa/SSACFGJsonExporter.h>
 
 #include <libsolutil/Algorithms.h>
 #include <libsolutil/Numeric.h>
@@ -35,8 +38,8 @@ SSACFGJsonExporter::SSACFGJsonExporter(ControlFlow const& _controlFlow, ControlF
 
 std::string SSACFGJsonExporter::varToString(SSACFG const& _cfg, SSACFG::ValueId _var)
 {
-	if (_var.value == std::numeric_limits<size_t>::max())
-		return std::string("INVALID");
+	if (!_var.hasValue())
+		return "INVALID";
 	auto const& info = _cfg.valueInfo(_var);
 	return std::visit(
 		util::GenericVisitor{
@@ -60,12 +63,14 @@ Json SSACFGJsonExporter::run()
 		yulAssert(&m_liveness->controlFlow.get() == &m_controlFlow);
 
 	Json yulObjectJson = Json::object();
-	yulObjectJson["blocks"] = exportBlock(*m_controlFlow.mainGraph, SSACFG::BlockId{0}, m_liveness ? m_liveness->mainLiveness.get() : nullptr);
+	yulObjectJson["blocks"] = exportBlock(*m_controlFlow.mainGraph(), SSACFG::BlockId{0}, m_liveness ? m_liveness->cfgLiveness.front().get() : nullptr);
 
 	Json functionsJson = Json::object();
-	size_t index = 0;
-	for (auto const& [function, functionGraph]: m_controlFlow.functionGraphMapping)
-		functionsJson[function->name.str()] = exportFunction(*functionGraph, m_liveness ? m_liveness->functionLiveness[index++].get() : nullptr);
+	size_t index = 1;
+	for (auto const& [function, functionGraph]: m_controlFlow.functionGraphMapping | ranges::views::drop(1))
+	{
+		functionsJson[function->name.str()] = exportFunction(*functionGraph, m_liveness ? m_liveness->cfgLiveness[index++].get() : nullptr);
+	}
 	yulObjectJson["functions"] = functionsJson;
 
 	return yulObjectJson;

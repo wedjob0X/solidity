@@ -72,13 +72,15 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 	ControlFlowSideEffectsCollector sideEffects(_dialect, _block);
 
 	auto controlFlow = std::make_unique<ControlFlow>();
-	SSACFGBuilder builder(*controlFlow, *controlFlow->mainGraph, _analysisInfo, sideEffects, _dialect, _keepLiteralAssignments);
-	builder.m_currentBlock = controlFlow->mainGraph->makeBlock(debugDataOf(_block));
+	controlFlow->functionGraphs.emplace_back(std::make_unique<SSACFG>());
+	controlFlow->functionGraphMapping.emplace_back(nullptr, controlFlow->functionGraphs.back().get());
+	SSACFGBuilder builder(*controlFlow, *controlFlow->functionGraphs.at(0), _analysisInfo, sideEffects, _dialect, _keepLiteralAssignments);
+	builder.m_currentBlock = controlFlow->functionGraphs.at(0)->makeBlock(debugDataOf(_block));
 	builder.sealBlock(builder.m_currentBlock);
 	builder(_block);
 	if (!builder.blockInfo(builder.m_currentBlock).sealed)
 		builder.sealBlock(builder.m_currentBlock);
-	controlFlow->mainGraph->block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
+	controlFlow->functionGraphs.at(0)->block(builder.m_currentBlock).exit = SSACFG::BasicBlock::MainExit{};
 	builder.cleanUnreachable();
 	return controlFlow;
 }
@@ -109,7 +111,7 @@ SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 	m_graph.block(phiInfo->block).phis.erase(_phi);
 
 	std::vector<SSACFG::ValueId> phiUses;
-	for (size_t blockIdValue = 0; blockIdValue < m_graph.numBlocks(); ++blockIdValue)
+	for (SSACFG::BlockId::ValueType blockIdValue = 0; blockIdValue < m_graph.numBlocks(); ++blockIdValue)
 	{
 		auto& block = m_graph.block(SSACFG::BlockId{blockIdValue});
 		for (auto blockPhi: block.phis)

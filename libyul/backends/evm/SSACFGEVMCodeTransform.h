@@ -43,7 +43,6 @@ class LivenessAnalysis;
 
 struct AssemblyCallbacks
 {
-	using Slot = StackSlot;
 	void swap(size_t const _depth)
 	{
 		assembly->appendInstruction(evmasm::swapInstruction(static_cast<unsigned>(_depth)));
@@ -56,31 +55,42 @@ struct AssemblyCallbacks
 
 	void push(StackSlot const& _slot)
 	{
-		std::visit(util::GenericVisitor{
-			[&](SSACFG::ValueId const& _id)
+		switch (_slot.kind())
+		{
+			case StackSlot::Kind::ValueID:
 			{
-				auto const& info = cfg->valueInfo(_id);
-				yulAssert(std::holds_alternative<SSACFG::LiteralValue>(info), fmt::format("Tried bringing up v{}", _id.value));
+				auto const id = _slot.valueID();
+				auto const& info = cfg->valueInfo(id);
+				yulAssert(
+					std::holds_alternative<SSACFG::LiteralValue>(info),
+					fmt::format("Tried bringing up v{}", id.value));
 				assembly->appendConstant(std::get<SSACFG::LiteralValue>(info).value);
-			},
-			[&](AbstractAssembly::LabelID const _label)
-			{
-				assembly->appendLabelReference(_label);
-			},
-			[&](FunctionReturnLabel const& _label)
-			{
-				auto const* maybeLabel = util::valueOrNullptr(*returnLabels, _label.functionCall);
-				yulAssert(maybeLabel);
-				assembly->appendLabelReference(*maybeLabel);
-			},
-			[&](JunkSlot const&)
+				return;
+			}
+			case StackSlot::Kind::Junk:
 			{
 				if (assembly->evmVersion().hasPush0())
 					assembly->appendConstant(0);
 				else
 					assembly->appendInstruction(evmasm::Instruction::CODESIZE);
+				return;
 			}
-		}, _slot);
+			case StackSlot::Kind::FunctionCallReturnLabel:
+			{
+				std::optional const call = callSites->functionCall(_slot.functionCallReturnLabel());
+				yulAssert(call);
+				assembly->appendLabelReference(returnLabels->at(*call));
+				return;
+			}
+			case StackSlot::Kind::FunctionReturnLabel:
+			{
+				//auto const* maybeLabel = util::valueOrNullptr(*returnLabels, _label.functionCall);
+				//yulAssert(maybeLabel);
+				//assembly->appendLabelReference(*maybeLabel);
+				// todo
+				return;
+			}
+		}
 	}
 
 	void dup(size_t const _depth)
@@ -88,17 +98,18 @@ struct AssemblyCallbacks
 		assembly->appendInstruction(evmasm::dupInstruction(static_cast<unsigned>(_depth)));
 	}
 
+	// ControlFlow const* controlFlow;
 	SSACFG const* cfg;
 	AbstractAssembly* assembly;
+	CallSites const* callSites;
 	std::map<FunctionCall const*, AbstractAssembly::LabelID> const* returnLabels;
 };
-static_assert(StackManipulationCallbackConcept<AssemblyCallbacks, StackSlot>);
+static_assert(StackManipulationCallbackConcept<AssemblyCallbacks>);
 
 class SSACFGEVMCodeTransform
 {
 public:
-	using SSACFGStack = Stack<StackSlot, AssemblyCallbacks>;
-	using Slot = SSACFGStack::Slot;
+	using Slot = StackSlot;
 	/// Use named labels for functions 1) Yes and check that the names are unique
 	/// 2) For none of the functions 3) for the first function of each name.
 	enum class UseNamedLabels { YesAndForceUnique, Never, ForFirstFunctionOfEachName };
@@ -142,14 +153,15 @@ private:
 
 	AbstractAssembly& m_assembly;
 	BuiltinContext& m_builtinContext;
+	// ControlFlow const& m_controlFlow;
 	SSACFG const& m_cfg;
 	LivenessAnalysis const& m_liveness;
 	TerminationPathAnalysis m_junkBlockFinder;
 	SSACFGStackLayout const m_stackLayout;
 	std::vector<StackTooDeepError> m_stackErrors;
 	AssemblyCallbacks m_assemblyCallbacks;
-	SSACFGStack::Data m_stackData;
-	SSACFGStack m_stack;
+	StackData m_stackData;
+	Stack<AssemblyCallbacks> m_stack;
 	FunctionLabels const m_functionLabels;
 	SSACFG::BlockId m_currentBlock;
 	std::vector<std::uint8_t> m_generatedBlocks;

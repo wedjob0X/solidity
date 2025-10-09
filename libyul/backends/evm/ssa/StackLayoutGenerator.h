@@ -45,7 +45,7 @@ public:
 				std::cout << "POP" << std::flush << " + ";
 		}
 	};
-	using StackType = Stack<Slot, StackManipulationCallbacks>;
+	using StackType = Stack<StackManipulationCallbacks>;
 	using StackData = StackType::Data;
 
 	// static ControlFlowLayout generate(ControlFlowLiveness const& _controlFlowLiveness);

@@ -26,7 +26,6 @@
 
 #include <test/Common.h>
 
-#include <libyul/backends/evm/SSACFGStack.h>
 #include <libyul/backends/evm/SSACFGStackLayout.h>
 
 #include <liblangutil/Scanner.h>
@@ -54,11 +53,11 @@ SSAStackShufflingTest::Stack::Data SSAStackShufflingTest::parse(std::string cons
 	{
 		std::string literal = scanner.currentLiteral();
 		if (literal.find("0x") != std::string::npos || scanner.currentToken() == Token::Number)
-			stackData.emplace_back(m_cfg->newLiteral(DebugData::create(), u256(literal)));
+			stackData.emplace_back(ssa::StackSlot::makeValueID(m_cfg->newLiteral(DebugData::create(), u256(literal))));
 		else if (literal == "JUNK")
-			stackData.emplace_back(ssa::JunkSlot{});
+			stackData.emplace_back(ssa::StackSlot::makeJunk());
 		else
-			stackData.emplace_back(m_cfg->newVariable({0}));
+			stackData.emplace_back(ssa::StackSlot::makeValueID({0}));
 		scanner.next();
 	}
 	if (scanner.currentToken() != Token::RBrack)
