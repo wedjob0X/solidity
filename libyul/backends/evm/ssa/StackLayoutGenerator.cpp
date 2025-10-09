@@ -318,7 +318,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 			}
 			cumulativeCosts[i] = cumulativeCost;
 		}
-		auto argMin = std::distance(cumulativeCosts.begin(), ranges::min_element(cumulativeCosts));
+		auto argMin = static_cast<size_t>(std::distance(cumulativeCosts.begin(), ranges::min_element(cumulativeCosts)));
 		yulAssert(parentExits[argMin].second);
 		// fmt::print(">> ARGMIN: {} (out of {})\n", argMin, cumulativeCosts.size());
 		m_stackLayout[_blockId].stackIn = *parentExits[argMin].second;

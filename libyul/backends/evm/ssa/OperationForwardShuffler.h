@@ -164,12 +164,12 @@ private:
 
 		size_t targetMinCount(Slot const& _slot) const
 		{
-			return util::valueOrDefault(targetMinCounts, _slot, 0);
+			return util::valueOrDefault(targetMinCounts, _slot, size_t{0});
 		}
 
 		size_t targetArgsCount(Slot const& _slot) const
 		{
-			return ranges::count_if(args, [&](auto const& _arg) { return _arg == _slot; });
+			return static_cast<size_t>(ranges::count_if(args, [&](auto const& _arg) { return _arg == _slot; }));
 		}
 
 		bool stackAdmissible() const
