@@ -74,13 +74,13 @@ std::string ssa::stackToString(StackData const& _stackData)
 {
 	auto const numJunk = junkTailSize(_stackData);
 	if (numJunk > 0)
-		return format(
+		return fmt::format(
 			"[JUNK x {}, {}]",
 			numJunk,
 			fmt::join(_stackData | ranges::views::drop(numJunk) | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot); }), ", ")
 		);
 	else
-		return format(
+		return fmt::format(
 			"[{}]",
 			fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot); }), ", ")
 		);
@@ -90,13 +90,13 @@ std::string ssa::stackToString(StackData const& _stackData, SSACFG const& _cfg)
 {
 	auto const numJunk = junkTailSize(_stackData);
 	if (numJunk > 0)
-		return format(
+		return fmt::format(
 			"[JUNK x {}, {}]",
 			numJunk,
 			fmt::join(_stackData | ranges::views::drop(numJunk) | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot, _cfg); }), ", ")
 		);
 	else
-		return format(
+		return fmt::format(
 			"[{}]",
 			fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot, _cfg); }), ", ")
 		);
