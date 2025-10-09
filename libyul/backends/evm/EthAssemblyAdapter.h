@@ -47,8 +47,8 @@ public:
 	void appendConstant(u256 const& _constant) override;
 	void appendLabel(LabelID _labelId) override;
 	void appendLabelReference(LabelID _labelId) override;
-	size_t newLabelId() override;
-	size_t namedLabel(std::string const& _name, size_t _params, size_t _returns, std::optional<size_t> _sourceID) override;
+	LabelID newLabelId() override;
+	LabelID namedLabel(std::string const& _name, size_t _params, size_t _returns, std::optional<LabelID> _sourceID) override;
 	void appendLinkerSymbol(std::string const& _linkerSymbol) override;
 	void appendVerbatim(bytes _data, size_t _arguments, size_t _returnVariables) override;
 	void appendJump(int _stackDiffAfter, JumpType _jumpType) override;

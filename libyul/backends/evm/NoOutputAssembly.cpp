@@ -77,7 +77,7 @@ NoOutputAssembly::LabelID NoOutputAssembly::newLabelId()
 	return 1;
 }
 
-AbstractAssembly::LabelID NoOutputAssembly::namedLabel(std::string const&, size_t, size_t, std::optional<size_t>)
+AbstractAssembly::LabelID NoOutputAssembly::namedLabel(std::string const&, size_t, size_t, std::optional<LabelID>)
 {
 	return 1;
 }

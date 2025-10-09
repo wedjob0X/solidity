@@ -78,12 +78,12 @@ void EthAssemblyAdapter::appendLabelReference(LabelID _labelId)
 	m_assembly.append(evmasm::AssemblyItem(evmasm::PushTag, _labelId));
 }
 
-size_t EthAssemblyAdapter::newLabelId()
+AbstractAssembly::LabelID EthAssemblyAdapter::newLabelId()
 {
 	return assemblyTagToIdentifier(m_assembly.newTag());
 }
 
-size_t EthAssemblyAdapter::namedLabel(std::string const& _name, size_t _params, size_t _returns, std::optional<size_t> _sourceID)
+AbstractAssembly::LabelID EthAssemblyAdapter::namedLabel(std::string const& _name, size_t _params, size_t _returns, std::optional<LabelID> _sourceID)
 {
 	return assemblyTagToIdentifier(m_assembly.namedTag(_name, _params, _returns, _sourceID));
 }
