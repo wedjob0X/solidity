@@ -56,7 +56,7 @@ public:
 
 	struct BlockId
 	{
-		size_t value = std::numeric_limits<size_t>::max();
+		std::uint32_t value = std::numeric_limits<std::uint32_t>::max();
 		auto operator<=>(BlockId const&) const = default;
 	};
 	struct Edge
@@ -67,7 +67,7 @@ public:
 	};
 	struct ValueId
 	{
-		using ValueType = size_t;
+		using ValueType = std::uint32_t;
 		ValueType value = std::numeric_limits<ValueType>::max();
 		bool hasValue() const { return value != std::numeric_limits<ValueType>::max(); }
 		auto operator<=>(ValueId const&) const = default;
