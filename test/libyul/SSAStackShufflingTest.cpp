@@ -55,14 +55,14 @@ SSAStackShufflingTest::Stack::Data SSAStackShufflingTest::parse(std::string cons
 		if (literal.find("0x") != std::string::npos || scanner.currentToken() == Token::Number)
 		{
 			auto const valueID = m_cfg->newLiteral(DebugData::create(), u256(literal));
-			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID, *m_cfg));
+			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID));
 		}
 		else if (literal == "JUNK")
 			stackData.emplace_back(ssa::StackSlot::makeJunk());
 		else
 		{
 			auto const valueID = m_cfg->newLiteral(DebugData::create(), u256(0));
-			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID, *m_cfg));
+			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID));
 		}
 		scanner.next();
 	}

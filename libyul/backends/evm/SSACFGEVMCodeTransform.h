@@ -60,11 +60,8 @@ struct AssemblyCallbacks
 			case StackSlot::Kind::ValueID:
 			{
 				auto const id = _slot.valueID();
-				auto const& info = cfg->valueInfo(id);
-				yulAssert(
-					std::holds_alternative<SSACFG::LiteralValue>(info),
-					fmt::format("Tried bringing up v{}", id.value));
-				assembly->appendConstant(std::get<SSACFG::LiteralValue>(info).value);
+				yulAssert(id.isLiteral(), fmt::format("Tried bringing up v{}", id.value()));
+				assembly->appendConstant(cfg->literalInfo(id).value);
 				return;
 			}
 			case StackSlot::Kind::Junk:

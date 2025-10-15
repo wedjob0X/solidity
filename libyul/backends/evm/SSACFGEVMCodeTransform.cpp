@@ -343,8 +343,8 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			{
 				returnSlots.reserve(_return.returnValues.size());
 				for (std::size_t i = 1; i < _return.returnValues.size(); ++i)
-					returnSlots.emplace_back(Slot::makeValueID(_return.returnValues[i], m_cfg));
-				returnSlots.emplace_back(Slot::makeValueID(_return.returnValues.front(), m_cfg));
+					returnSlots.emplace_back(Slot::makeValueID(_return.returnValues[i]));
+				returnSlots.emplace_back(Slot::makeValueID(_return.returnValues.front()));
 
 				shuffleStack(returnSlots);
 				// stack = [..., label, ret2, ..., retn, ret1]
@@ -413,7 +413,7 @@ void SSACFGEVMCodeTransform::performOperation(SSACFG::Operation const& _operatio
 	for (size_t i = 0; i < _operation.inputs.size(); ++i)
 		m_stack.pop<false>();
 	for (auto value: _operation.outputs)
-		m_stack.push<false>(Slot::makeValueID(value, m_cfg));
+		m_stack.push<false>(Slot::makeValueID(value));
 
 	if constexpr (debugOutput)
 		std::cout << " -> " << stackToString(m_stack.data(), m_cfg) << std::endl;

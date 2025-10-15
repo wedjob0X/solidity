@@ -62,26 +62,16 @@ public:
 	}
 
 	static std::string varToString(SSACFG const& _cfg, SSACFG::ValueId _var) {
-		if (_var.value == std::numeric_limits<size_t>::max())
+		if (!_var.hasValue())
 			return "INVALID";
-		auto const& info = _cfg.valueInfo(_var);
-		return std::visit(
-			GenericVisitor{
-				[&](SSACFG::UnreachableValue const&) -> std::string {
-					return "[unreachable]";
-				},
-				[&](SSACFG::PhiValue const&) -> std::string {
-					return fmt::format("v{}", _var.value);
-				},
-				[&](SSACFG::VariableValue const&) -> std::string {
-					return fmt::format("v{}", _var.value);
-				},
-				[&](SSACFG::LiteralValue const& _literal) -> std::string {
-					return formatNumberReadable(_literal.value);
-				}
-			},
-			info
-		);
+		switch (_var.kind())
+		{
+			case SSACFG::ValueId::Kind::Literal:  return formatNumberReadable(_cfg.literalInfo(_var).value);
+			case SSACFG::ValueId::Kind::Variable: return fmt::format("v{}", _var.value());
+			case SSACFG::ValueId::Kind::Phi: return fmt::format("phi{}", _var.value());
+			case SSACFG::ValueId::Kind::Unreachable: return "[unreachable]";
+		}
+		unreachable();
 	}
 
 private:
@@ -144,7 +134,7 @@ private:
 			std::string revertPathInfo;
 			if (m_cfgRevertPaths)
 				revertPathInfo = m_cfgRevertPaths->blockAllowsAdditionOfJunk(_id) ? "fillcolor=\"#FF746C\", style=filled, " : "";
-			if (false && m_liveness)
+			if (m_liveness)
 			{
 				m_result << fmt::format(
 					"{} [{}label=\"\\\nBlock {}\\n",
@@ -179,9 +169,8 @@ private:
 
 			for (auto const& phi: _block.phis)
 			{
-				auto const* phiValue = std::get_if<SSACFG::PhiValue>(&m_cfg.valueInfo(phi));
-				solAssert(phiValue);
-				m_result << fmt::format("v{} := {}\\l\\\n", phi.value, formatPhi(m_cfg, *phiValue));
+				auto const& phiInfo = m_cfg.phiInfo(phi);
+				m_result << fmt::format("phi{} := {}\\l\\\n", phi.value(), formatPhi(m_cfg, phiInfo));
 			}
 			for (auto const& operation: _block.operations)
 			{
@@ -302,7 +291,7 @@ private:
 	void printFunction(Scope::Function const& _fun)
 	{
 		static auto constexpr returnsTransform = [](auto const& functionReturnValue) { return escape(functionReturnValue.get().name.str()); };
-		static auto constexpr argsTransform = [](auto const& arg) { return fmt::format("v{}", std::get<1>(arg).value); };
+		static auto constexpr argsTransform = [](auto const& arg) { return fmt::format("v{}", std::get<1>(arg).value()); };
 		m_result << "FunctionEntry_" << escape(_fun.name.str()) << "_" << m_cfg.entry.value << " [label=\"";
 		if (!m_cfg.returns.empty())
 			m_result << fmt::format("function {0}:\n {1} := {0}({2})", escape(_fun.name.str()), fmt::join(m_cfg.returns | ranges::views::transform(returnsTransform), ", "), fmt::join(m_cfg.arguments | ranges::views::transform(argsTransform), ", "));

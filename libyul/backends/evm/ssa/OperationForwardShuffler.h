@@ -131,7 +131,7 @@ private:
 		{
 			for (auto const& _liveValueId: _liveOut | ranges::views::keys)
 			{
-				auto const [it, _] = targetMinCounts.try_emplace(Slot::makeValueID(_liveValueId, _cfg));
+				auto const [it, _] = targetMinCounts.try_emplace(Slot::makeValueID(_liveValueId));
 				++it->second;
 			}
 		}

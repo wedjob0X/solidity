@@ -85,40 +85,32 @@ public:
 	constexpr StackSlot& operator=(StackSlot&&) = default;
 
 	constexpr bool isValueID() const noexcept { return kind() == Kind::ValueID; }
-	constexpr bool isLiteralValueID() const noexcept { return m_literal; }
+	constexpr bool isLiteralValueID() const noexcept { return isValueID() && m_valueIdKind == SSACFG::ValueId::Kind::Literal; }
 	constexpr bool isFunctionReturnLabel() const noexcept { return kind() == Kind::FunctionReturnLabel; }
 	constexpr bool isFunctionCallReturnLabel() const noexcept { return kind() == Kind::FunctionCallReturnLabel; }
 	constexpr bool isJunk() const noexcept { return kind() == Kind::Junk; }
 	constexpr Kind kind() const noexcept { return m_kind; }
 
-	ControlFlow::FunctionGraphID functionReturnLabel() const noexcept { yulAssert(kind() == Kind::FunctionReturnLabel); return m_payload; }
-	SSACFG::ValueId valueID() const noexcept { yulAssert(kind() == Kind::ValueID); return SSACFG::ValueId{static_cast<SSACFG::ValueId::ValueType>(m_payload)}; }
-	CallSites::CallSiteID functionCallReturnLabel() const noexcept { yulAssert(kind() == Kind::FunctionCallReturnLabel); return m_payload; }
+	ControlFlow::FunctionGraphID functionReturnLabel() const noexcept { yulAssert(isFunctionReturnLabel()); return m_payload; }
+	CallSites::CallSiteID functionCallReturnLabel() const noexcept { yulAssert(isFunctionCallReturnLabel()); return m_payload; }
+	SSACFG::ValueId valueID() const noexcept { yulAssert(isValueID()); return {m_payload, m_valueIdKind}; }
 
-	static constexpr StackSlot makeJunk() { return {Kind::Junk, false, 0}; }
-	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID, SSACFG const& _cfg) { return {Kind::ValueID, _cfg.isLiteralValue(_valueID), _valueID.value}; }
-	static constexpr StackSlot makeFunctionReturnLabel(ControlFlow::FunctionGraphID const _graphID) { return {Kind::FunctionReturnLabel, false, _graphID}; }
-	static constexpr StackSlot makeFunctionCallReturnLabel(CallSites::CallSiteID const _callSiteID) { return {Kind::FunctionCallReturnLabel, false, _callSiteID};	}
-
-	bool operator<(StackSlot const& _other) const
-	{
-		if (m_kind != _other.m_kind)
-			return m_kind < _other.m_kind;
-
-		return m_payload < _other.m_payload;
-	}
+	static constexpr StackSlot makeJunk() { return {0, Kind::Junk}; }
+	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID) { return {_valueID.value(), Kind::ValueID, _valueID.kind()}; }
+	static constexpr StackSlot makeFunctionReturnLabel(ControlFlow::FunctionGraphID const _graphID) { return {_graphID, Kind::FunctionReturnLabel}; }
+	static constexpr StackSlot makeFunctionCallReturnLabel(CallSites::CallSiteID const _callSiteID) { return {_callSiteID, Kind::FunctionCallReturnLabel};	}
 
 	auto operator<=>(StackSlot const&) const = default;
 private:
-	constexpr StackSlot(Kind const _kind, bool const _literal, std::uint32_t const _payload):
+	constexpr StackSlot(std::uint32_t const _payload, Kind const _kind, SSACFG::ValueId::Kind const _valueIdKind = SSACFG::ValueId::Kind::Unreachable):
 		m_kind(_kind),
-		m_literal(_literal),
-		m_payload(_payload)
+		m_payload(_payload),
+		m_valueIdKind(_valueIdKind)
 	{}
 
-	Kind m_kind;
-	bool m_literal;
 	std::uint32_t m_payload;
+	Kind m_kind;
+	SSACFG::ValueId::Kind m_valueIdKind;
 };
 
 // PODness of the slot

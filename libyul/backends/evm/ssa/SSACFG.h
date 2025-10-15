@@ -25,7 +25,6 @@
 
 
 #include <libyul/AST.h>
-#include <libyul/AsmAnalysisInfo.h>
 #include <libyul/Dialect.h>
 #include <libyul/Exceptions.h>
 #include <libyul/Scope.h>
@@ -57,7 +56,8 @@ public:
 	struct BlockId
 	{
 		using ValueType = std::uint32_t;
-		std::uint32_t value = std::numeric_limits<std::uint32_t>::max();
+		std::uint32_t value = std::numeric_limits<ValueType>::max();
+		bool hasValue() const { return value != std::numeric_limits<ValueType>::max(); }
 		auto operator<=>(BlockId const&) const = default;
 	};
 	struct Edge
@@ -66,12 +66,44 @@ public:
 		BlockId to;
 		auto operator<=>(Edge const&) const = default;
 	};
-	struct ValueId
+	class ValueId
 	{
+	public:
+		enum class Kind: std::uint8_t
+		{
+			Literal,
+			Variable,
+			Phi,
+			Unreachable
+		};
 		using ValueType = std::uint32_t;
-		ValueType value = std::numeric_limits<ValueType>::max();
-		bool hasValue() const { return value != std::numeric_limits<ValueType>::max(); }
+
+		constexpr ValueId() = default;
+		constexpr ValueId(ValueType const _value, Kind const _kind): m_value(_value), m_kind(_kind) {}
+		constexpr ValueId(ValueId const&) = default;
+		constexpr ValueId(ValueId&&) = default;
+		constexpr ValueId& operator=(ValueId const&) = default;
+		constexpr ValueId& operator=(ValueId&&) = default;
+
+		static ValueId constexpr makeLiteral(ValueType const& _value) { return ValueId{_value, Kind::Literal}; }
+		static ValueId constexpr makeVariable(ValueType const& _value) { return ValueId{_value, Kind::Variable}; }
+		static ValueId constexpr makePhi(ValueType const& _value) { return ValueId{_value, Kind::Phi}; }
+		static ValueId constexpr makeUnreachable() { return ValueId{0u, Kind::Unreachable}; }
+
+		bool constexpr isLiteral() const noexcept { return m_kind == Kind::Literal; }
+		bool constexpr isVariable() const noexcept { return m_kind == Kind::Variable; }
+		bool constexpr isPhi() const noexcept { return m_kind == Kind::Phi; }
+		bool constexpr isUnreachable() const noexcept { return m_kind == Kind::Unreachable; }
+
+		bool constexpr hasValue() const { return m_value != std::numeric_limits<ValueType>::max(); }
+		ValueType constexpr value() const noexcept { return m_value; }
+		Kind constexpr kind() const noexcept { return m_kind; }
+
 		auto operator<=>(ValueId const&) const = default;
+
+	private:
+		ValueType m_value{std::numeric_limits<ValueType>::max()};
+		Kind m_kind{Kind::Unreachable};
 	};
 
 	struct BuiltinCall
@@ -195,63 +227,46 @@ public:
 		std::vector<ValueId> arguments;
 	};
 	struct UnreachableValue {};
-	using ValueInfo = std::variant<UnreachableValue, VariableValue, LiteralValue, PhiValue>;
-	bool isLiteralValue(ValueId const _var) const
-	{
-		return std::holds_alternative<LiteralValue>(valueInfo(_var));
-	}
-	bool isPhiValue(ValueId const _var) const
-	{
-		return std::holds_alternative<PhiValue>(valueInfo(_var));
-	}
-	ValueInfo& valueInfo(ValueId const _var)
-	{
-		return m_valueInfos.at(_var.value);
-	}
-	ValueInfo const& valueInfo(ValueId const _var) const
-	{
-		return valueInfo(_var.value);
-	}
-	ValueInfo const& valueInfo(ValueId::ValueType const _var) const
-	{
-		return m_valueInfos.at(_var);
-	}
 	ValueId newPhi(BlockId const _definingBlock)
 	{
-		ValueId id { static_cast<ValueId::ValueType>(m_valueInfos.size()) };
-		auto block = m_blocks.at(_definingBlock.value);
-		m_valueInfos.emplace_back(PhiValue{debugDataOf(block), _definingBlock, {}});
-		return id;
+		auto const& block = m_blocks.at(_definingBlock.value);
+		m_phis.emplace_back(debugDataOf(block), _definingBlock, std::vector<ValueId>{});
+		auto const value = m_phis.size() - 1;
+		yulAssert(value <= std::numeric_limits<ValueId::ValueType>::max());
+		return ValueId::makePhi(static_cast<ValueId::ValueType>(value));
 	}
 	ValueId newVariable(BlockId const _definingBlock)
 	{
-		ValueId id { static_cast<ValueId::ValueType>(m_valueInfos.size()) };
-		auto block = m_blocks.at(_definingBlock.value);
-		m_valueInfos.emplace_back(VariableValue{debugDataOf(block), _definingBlock});
-		return id;
+		auto const& block = m_blocks.at(_definingBlock.value);
+		m_variables.emplace_back(debugDataOf(block), _definingBlock);
+		auto const value = m_variables.size() - 1;
+		yulAssert(value <= std::numeric_limits<ValueId::ValueType>::max());
+		return ValueId::makeVariable(static_cast<ValueId::ValueType>(value));
 	}
+
 	ValueId unreachableValue()
 	{
 		if (!m_unreachableValue)
-		{
-			m_unreachableValue = ValueId { static_cast<ValueId::ValueType>(m_valueInfos.size()) };
-			m_valueInfos.emplace_back(UnreachableValue{});
-		}
+			m_unreachableValue = ValueId::makeUnreachable();
 		return *m_unreachableValue;
 	}
+
 	ValueId newLiteral(langutil::DebugData::ConstPtr _debugData, u256 _value)
 	{
-		auto [it, inserted] = m_literals.emplace(_value, ValueId{static_cast<ValueId::ValueType>(m_valueInfos.size())});
-		if (inserted)
-			m_valueInfos.emplace_back(LiteralValue{std::move(_debugData), _value});
-		else
+		auto const it = m_literalMapping.find(_value);
+		if (it != m_literalMapping.end())
 		{
-			yulAssert(_value == it->first);
-			yulAssert(std::holds_alternative<LiteralValue>(m_valueInfos.at(it->second.value)));
-			yulAssert(std::get<LiteralValue>(m_valueInfos.at(it->second.value)).value == _value);
+			ValueId const& valueId = it->second;
+			yulAssert(valueId.hasValue() && m_literals[valueId.value()].value == _value);
+			return valueId;
 		}
-		yulAssert(it->second.value < m_valueInfos.size());
-		return it->second;
+
+		m_literals.emplace_back(std::move(_debugData), std::move(_value));
+		auto const value = m_literals.size() - 1;
+		yulAssert(value <= std::numeric_limits<ValueId::ValueType>::max());
+		auto const literalId = ValueId::makeLiteral(value);
+		m_literalMapping.emplace(_value, literalId);
+		return literalId;
 	}
 
 	size_t phiArgumentIndex(BlockId const _source, BlockId const _target) const
@@ -268,11 +283,34 @@ public:
 		bool _includeDiGraphDefinition=true,
 		std::optional<size_t> _functionIndex=std::nullopt,
 		LivenessAnalysis const* _liveness=nullptr,
-		ssa::SSACFGStackLayout const* _stackLayout=nullptr
+		SSACFGStackLayout const* _stackLayout=nullptr
 	) const;
+
+	PhiValue const& phiInfo(ValueId const& _valueId) const
+	{
+		yulAssert(_valueId.hasValue() && _valueId.isPhi());
+		return m_phis.at(_valueId.value());
+	}
+	PhiValue& phiInfo(ValueId const& _valueId)
+	{
+		yulAssert(_valueId.hasValue() && _valueId.isPhi());
+		return m_phis.at(_valueId.value());
+	}
+	LiteralValue const& literalInfo(ValueId const& _valueId) const
+	{
+		yulAssert(_valueId.hasValue() && _valueId.isLiteral());
+		return m_literals.at(_valueId.value());
+	}
+	VariableValue const& variableInfo(ValueId const& _valueId) const
+	{
+		yulAssert(_valueId.hasValue() && _valueId.isVariable());
+		return m_variables.at(_valueId.value());
+	}
 private:
-	std::deque<ValueInfo> m_valueInfos;
-	std::map<u256, ValueId> m_literals;
+	std::vector<LiteralValue> m_literals;
+	std::map<u256, ValueId> m_literalMapping;
+	std::vector<PhiValue> m_phis;
+	std::vector<VariableValue> m_variables;
 	std::optional<ValueId> m_unreachableValue;
 public:
 	langutil::DebugData::ConstPtr debugData;
@@ -297,7 +335,7 @@ struct fmt::formatter<solidity::yul::ssa::SSACFG::BlockId>
 	template<typename FormatContext>
 	auto format(solidity::yul::ssa::SSACFG::BlockId const& _blockId, FormatContext& _ctx) const -> decltype(_ctx.out())
 	{
-		if (_blockId.value == std::numeric_limits<size_t>::max())
+		if (!_blockId.hasValue())
 			return fmt::format_to(_ctx.out(), "empty");
 		return fmt::format_to(_ctx.out(), "{}", _blockId.value);
 	}

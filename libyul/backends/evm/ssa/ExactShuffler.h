@@ -52,7 +52,7 @@ void shuffleStackExact(Stack& _stack, typename Stack::Data const& _target, SSACF
 		for (auto const& slot: _target)
 		{
 			if (slot.isValueID())
-				transformedTarget.push_back(StackSlot::makeValueID(transform(slot.valueID()), _cfg));
+				transformedTarget.push_back(StackSlot::makeValueID(transform(slot.valueID())));
 			else
 				transformedTarget.push_back(slot);
 		}

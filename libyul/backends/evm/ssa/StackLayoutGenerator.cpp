@@ -118,6 +118,8 @@ StackLayoutGenerator::StackLayoutGenerator(LivenessAnalysis const& _liveness, Te
 SSACFGStackLayout StackLayoutGenerator::generate(LivenessAnalysis const& _cfgLiveness, TerminationPathAnalysis const& _junkBlockFinder)
 {
 	if constexpr (debugOutput)
+		std::cout << _cfgLiveness.cfg().toDot(true, std::nullopt, &_cfgLiveness) << std::endl;
+	if constexpr (debugOutput)
 		std::cout << "stack layout for "
 				  << (_cfgLiveness.cfg().function ? _cfgLiveness.cfg().function->name.str() : "main graph") << '\n';
 	return StackLayoutGenerator{_cfgLiveness, _junkBlockFinder}.computeStackLayout();
@@ -131,7 +133,7 @@ void StackLayoutGenerator::handlePhiFunctions(StackData& _stackData, ReversePhiF
 		// v = phi^{-1}(v_phi)
 		// auto const& preImage = nonZeroPreImage.data().at(phi);
 		auto reversedStackData = _stackData | ranges::views::reverse;
-		auto it = ranges::find(reversedStackData, Slot::makeValueID(preImage, _cfg));
+		auto it = ranges::find(reversedStackData, Slot::makeValueID(preImage));
 		if (_liveness.contains(preImage))
 		{
 			// Both the phi function and the pre image are part of the live in set.
@@ -141,18 +143,18 @@ void StackLayoutGenerator::handlePhiFunctions(StackData& _stackData, ReversePhiF
 			// We must have the pre image here at least once, otherwise it's an invalid dup
 			// yulAssert(it != _stackData.end());
 			// auto it2 = ranges::find(_stackData.begin(), std::prev(it), Slot{preImage});
-			if(ranges::count(_stackData, Slot::makeValueID(preImage, _cfg)) > 1)
-				*it = Slot::makeValueID(phi, _cfg);
+			if(ranges::count(_stackData, Slot::makeValueID(preImage)) > 1)
+				*it = Slot::makeValueID(phi);
 			else
-				_stackData.emplace_back(Slot::makeValueID(phi, _cfg));
+				_stackData.emplace_back(Slot::makeValueID(phi));
 		}
 		else
 		{
 			// replace all v with phi
-			ranges::replace(_stackData, Slot::makeValueID(preImage, _cfg), Slot::makeValueID(phi, _cfg));
+			ranges::replace(_stackData, Slot::makeValueID(preImage), Slot::makeValueID(phi));
 			// if its not contained, push it (could be derived from a literal)
 			if (it == ranges::end(reversedStackData))
-				_stackData.emplace_back(Slot::makeValueID(phi, _cfg));
+				_stackData.emplace_back(Slot::makeValueID(phi));
 		}
 	}
 }
@@ -203,7 +205,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 			m_stackLayout[m_cfg.entry].stackIn =
 				m_cfg.arguments |
 				ranges::views::reverse |
-				ranges::views::transform([this](auto&& _variableAndValueId) -> Slot { return Slot::makeValueID(std::get<1>(_variableAndValueId), m_cfg); }) |
+				ranges::views::transform([](auto&& _variableAndValueId) -> Slot { return Slot::makeValueID(std::get<1>(_variableAndValueId)); }) |
 				ranges::to<std::vector>;
 		m_blockHasStackInDefined[_blockId.value] = true;
 		return;
@@ -378,7 +380,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 				auto const callSiteID = m_stackLayout.callSites.addCallSite(&call->call.get());
 				requiredStackTop.emplace_back(Slot::makeFunctionCallReturnLabel(callSiteID));
 			}
-		requiredStackTop += operation.inputs | ranges::views::transform([this](auto const& _valueId) {return Slot::makeValueID(_valueId, m_cfg);});
+		requiredStackTop += operation.inputs | ranges::views::transform(Slot::makeValueID);
 
 		for (size_t depth = 0; depth < stack.size(); ++depth)
 			if (stack.slot(depth).isValueID() && !liveOutWithoutOutputsSet.contains(stack.slot(depth).valueID()) && ranges::find(requiredStackTop, stack.slot(depth)) == ranges::end(requiredStackTop))
@@ -387,7 +389,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 
 		// declareJunk(stack, opLiveOutWithoutOutputs );
 		if constexpr(debugOutput)
-			std::cout << "{ " << stackToString(liveOutWithoutOutputs | ranges::views::transform([this](auto const& _valueId) {return Slot::makeValueID(_valueId, m_cfg);}) | ranges::to<std::vector>, m_cfg) << " } + " << stackToString(requiredStackTop, m_cfg) << ") -> " << std::flush;
+			std::cout << "{ " << stackToString(liveOutWithoutOutputs | ranges::views::transform(Slot::makeValueID) | ranges::to<std::vector>, m_cfg) << " } + " << stackToString(requiredStackTop, m_cfg) << ") -> " << std::flush;
 
 		OperationForwardShuffler<StackType>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId), m_cfg);
 
@@ -402,7 +404,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		for (size_t i = 0; i < requiredStackTop.size(); ++i)
 			stack.pop();
 		for (auto const& val: operation.outputs)
-			stack.push(Slot::makeValueID(val, m_cfg));
+			stack.push(Slot::makeValueID(val));
 
 		if constexpr(debugOutput)
 		{
@@ -438,15 +440,15 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 			if (liveOutUnion.contains(cjump->condition))
 			{
 				// need to dup
-				stack.pushOrDup(Slot::makeValueID(cjump->condition, m_cfg));
+				stack.pushOrDup(Slot::makeValueID(cjump->condition));
 			}
 			else
 			{
 				// can swap up
-				if (auto const depth = stack.slotDepth(Slot::makeValueID(cjump->condition, m_cfg)))
+				if (auto const depth = stack.slotDepth(Slot::makeValueID(cjump->condition)))
 					stack.swap(*depth);
 				else
-					stack.push(Slot::makeValueID(cjump->condition, m_cfg));
+					stack.push(Slot::makeValueID(cjump->condition));
 			}
 		}
 

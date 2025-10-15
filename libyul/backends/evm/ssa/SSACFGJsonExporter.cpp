@@ -26,7 +26,6 @@
 #include <libsolutil/Numeric.h>
 
 #include <range/v3/view/enumerate.hpp>
-#include <range/v3/view/map.hpp>
 #include <range/v3/view/transform.hpp>
 
 using namespace solidity;
@@ -40,21 +39,17 @@ std::string SSACFGJsonExporter::varToString(SSACFG const& _cfg, SSACFG::ValueId 
 {
 	if (!_var.hasValue())
 		return "INVALID";
-	auto const& info = _cfg.valueInfo(_var);
-	return std::visit(
-		util::GenericVisitor{
-			[&](SSACFG::UnreachableValue const&) -> std::string {
-				return "[unreachable]";
-			},
-			[&](SSACFG::LiteralValue const& _literal) {
-				return toCompactHexWithPrefix(_literal.value);
-			},
-			[&](auto const&) {
-				return "v" + std::to_string(_var.value);
-			}
-		},
-		info
-	);
+	switch (_var.kind())
+	{
+		case SSACFG::ValueId::Kind::Literal:
+			return toCompactHexWithPrefix(_cfg.literalInfo(_var).value);
+		case SSACFG::ValueId::Kind::Variable:
+		case SSACFG::ValueId::Kind::Phi:
+			return "v" + std::to_string(_var.value());
+		case SSACFG::ValueId::Kind::Unreachable:
+			return "[unreachable]";
+	}
+	util::unreachable();
 }
 
 Json SSACFGJsonExporter::run()
@@ -81,7 +76,7 @@ Json SSACFGJsonExporter::exportFunction(SSACFG const& _cfg, LivenessAnalysis con
 	Json functionJson = Json::object();
 	functionJson["type"] = "Function";
 	functionJson["entry"] = "Block" + std::to_string(_cfg.entry.value);
-	static auto constexpr argsTransform = [](auto const& _arg) { return fmt::format("v{}", std::get<1>(_arg).value); };
+	static auto constexpr argsTransform = [](auto const& _arg) { return fmt::format("v{}", std::get<1>(_arg).value()); };
 	functionJson["arguments"] = _cfg.arguments | ranges::views::transform(argsTransform) | ranges::to<std::vector>;
 	functionJson["numReturns"] = _cfg.returns.size();
 	functionJson["blocks"] = exportBlock(_cfg, _cfg.entry, _liveness);
@@ -162,12 +157,11 @@ Json SSACFGJsonExporter::toJson(SSACFG const& _cfg, SSACFG::BlockId _blockId, Li
 			| ranges::to<Json::array_t>();
 		for (auto const& phi: block.phis)
 		{
-			auto* phiInfo = std::get_if<SSACFG::PhiValue>(&_cfg.valueInfo(phi));
-			yulAssert(phiInfo);
+			auto const& phiInfo = _cfg.phiInfo(phi);
 			Json phiJson = Json::object();
 			phiJson["op"] = "PhiFunction";
-			phiJson["in"] = toJson(_cfg, phiInfo->arguments);
-			phiJson["out"] = toJson(_cfg, std::vector<SSACFG::ValueId>{phi});
+			phiJson["in"] = toJson(_cfg, phiInfo.arguments);
+			phiJson["out"] = toJson(_cfg, std::vector{phi});
 			blockJson["instructions"].push_back(phiJson);
 		}
 	}
@@ -189,7 +183,7 @@ Json SSACFGJsonExporter::toJson(Json& _ret, SSACFG const& _cfg, SSACFG::Operatio
 		[&](SSACFG::LiteralAssignment const&)
 		{
 			yulAssert(_operation.inputs.size() == 1);
-			yulAssert(_cfg.isLiteralValue(_operation.inputs.back()));
+			yulAssert(_operation.inputs.back().isLiteral());
 			opJson["op"] = "LiteralAssignment";
 		},
 		[&](SSACFG::BuiltinCall const& _call)

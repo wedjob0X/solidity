@@ -24,6 +24,7 @@
 #include <libyul/backends/evm/ssa/ControlFlow.h>
 
 #include <libyul/AST.h>
+#include <libyul/AsmAnalysisInfo.h>
 #include <libyul/ControlFlowSideEffectsCollector.h>
 #include <libyul/Exceptions.h>
 #include <libyul/Utilities.h>
@@ -88,12 +89,11 @@ std::unique_ptr<ControlFlow> SSACFGBuilder::build(
 SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 {
 	// TODO: double-check if this is sane
-	auto const* phiInfo = std::get_if<SSACFG::PhiValue>(&m_graph.valueInfo(_phi));
-	yulAssert(phiInfo);
-	yulAssert(blockInfo(phiInfo->block).sealed);
+	auto const& phiInfo = m_graph.phiInfo(_phi);
+	yulAssert(blockInfo(phiInfo.block).sealed);
 
 	SSACFG::ValueId same;
-	for (SSACFG::ValueId arg: phiInfo->arguments)
+	for (SSACFG::ValueId arg: phiInfo.arguments)
 	{
 		if (arg == same || arg == _phi)
 			continue;  // unique value or self-reference
@@ -108,7 +108,7 @@ SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 		same = m_graph.unreachableValue();
 	}
 
-	m_graph.block(phiInfo->block).phis.erase(_phi);
+	m_graph.block(phiInfo.block).phis.erase(_phi);
 
 	std::vector<SSACFG::ValueId> phiUses;
 	for (SSACFG::BlockId::ValueType blockIdValue = 0; blockIdValue < m_graph.numBlocks(); ++blockIdValue)
@@ -117,10 +117,9 @@ SSACFG::ValueId SSACFGBuilder::tryRemoveTrivialPhi(SSACFG::ValueId _phi)
 		for (auto blockPhi: block.phis)
 		{
 			yulAssert(blockPhi != _phi, "Phis should be defined in exactly one block, _phi was erased.");
-			auto* blockPhiInfo = std::get_if<SSACFG::PhiValue>(&m_graph.valueInfo(blockPhi));
-			yulAssert(blockPhiInfo);
+			auto& blockPhiInfo = m_graph.phiInfo(blockPhi);
 			bool usedInPhi = false;
-			for (auto& arg: blockPhiInfo->arguments)
+			for (auto& arg: blockPhiInfo.arguments)
 				if (arg == _phi)
 				{
 					arg = same;
@@ -187,14 +186,14 @@ void SSACFGBuilder::cleanUnreachable()
 		std::vector<SSACFG::ValueId> maybeTrivialPhi;
 		std::erase_if(block.entries, [&](auto const& entry) { return !reachabilityCheck.visited.contains(entry); });
 		for (auto phi: block.phis)
-			if (auto* phiInfo = std::get_if<SSACFG::PhiValue>(&m_graph.valueInfo(phi)))
-			{
-				auto erasedCount = std::erase_if(phiInfo->arguments, [&](SSACFG::ValueId _arg) {
-					return std::holds_alternative<SSACFG::UnreachableValue>(m_graph.valueInfo(_arg));
-				});
-				if (erasedCount > 0)
-					maybeTrivialPhi.push_back(phi);
-			}
+		{
+			auto& phiInfo = m_graph.phiInfo(phi);
+			auto const erasedCount = std::erase_if(phiInfo.arguments, [&](SSACFG::ValueId const _arg) {
+				return _arg.isUnreachable();
+			});
+			if (erasedCount > 0)
+				maybeTrivialPhi.push_back(phi);
+		}
 
 		// After removing a phi argument, we might end up with a trivial phi that can be removed.
 		for (auto phi: maybeTrivialPhi)
@@ -567,7 +566,7 @@ void SSACFGBuilder::assign(std::vector<std::reference_wrapper<Scope::Variable co
 
 	for (auto const& [var, value]: ranges::zip_view(_variables, rhs))
 	{
-		if (m_keepLiteralAssignments && m_graph.isLiteralValue(value))
+		if (m_keepLiteralAssignments && value.isLiteral())
 		{
 			SSACFG::Operation assignment{
 				.outputs = {m_graph.newVariable(m_currentBlock)},
@@ -669,10 +668,12 @@ SSACFG::ValueId SSACFGBuilder::readVariableRecursive(Scope::Variable const& _var
 
 SSACFG::ValueId SSACFGBuilder::addPhiOperands(Scope::Variable const& _variable, SSACFG::ValueId _phi)
 {
-	yulAssert(std::holds_alternative<SSACFG::PhiValue>(m_graph.valueInfo(_phi)));
-	auto& phi = std::get<SSACFG::PhiValue>(m_graph.valueInfo(_phi));
-	for (auto const& pred: m_graph.block(phi.block).entries)
-		phi.arguments.emplace_back(readVariable(_variable, pred));
+	yulAssert(_phi.isPhi());
+	for (auto const& pred: m_graph.block(m_graph.phiInfo(_phi).block).entries)
+	{
+		auto const var = readVariable(_variable, pred);
+		m_graph.phiInfo(_phi).arguments.emplace_back(var);
+	}
 	// we call tryRemoveTrivialPhi explicitly to avoid removing trivial phis in unsealed blocks
 	return _phi;
 }

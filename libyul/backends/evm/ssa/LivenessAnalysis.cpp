@@ -31,18 +31,18 @@ using namespace solidity::yul::ssa;
 
 namespace
 {
-constexpr auto excludingLiteralsFilter(SSACFG const& _cfg)
+constexpr auto excludingLiteralsFilter()
 {
-	return [&_cfg](LivenessAnalysis::LivenessData::Value const& _valueId) -> bool
+	return [](LivenessAnalysis::LivenessData::Value const& _valueId) -> bool
 	{
-		return !std::holds_alternative<SSACFG::LiteralValue>(_cfg.valueInfo(_valueId));
+		return !_valueId.isLiteral();
 	};
 }
-constexpr auto unreachableFilter(SSACFG const& _cfg)
+constexpr auto unreachableFilter()
 {
-	return [&_cfg](LivenessAnalysis::LivenessData::Value const& _valueId) -> bool
+	return [](LivenessAnalysis::LivenessData::Value const& _valueId) -> bool
 	{
-		return std::holds_alternative<SSACFG::UnreachableValue>(_cfg.valueInfo(_valueId));
+		return _valueId.isUnreachable();
 	};
 }
 }
@@ -149,18 +149,18 @@ LivenessAnalysis::LivenessData LivenessAnalysis::blockExitValues(SSACFG::BlockId
 		[](SSACFG::BasicBlock::MainExit const&) {},
 		[&](SSACFG::BasicBlock::FunctionReturn const& _functionReturn)
 		{
-			for (auto const& valueId: _functionReturn.returnValues | ranges::views::filter(excludingLiteralsFilter(m_cfg)))
+			for (auto const& valueId: _functionReturn.returnValues | ranges::views::filter(excludingLiteralsFilter()))
 				result.insert(valueId);
 		},
 		[&](SSACFG::BasicBlock::JumpTable const& _jt)
 		{
-			if (excludingLiteralsFilter(m_cfg)(_jt.value))
+			if (excludingLiteralsFilter()(_jt.value))
 				result.insert(_jt.value);
 		},
 		[](SSACFG::BasicBlock::Jump const&) {},
 		[&](SSACFG::BasicBlock::ConditionalJump const& _conditionalJump)
 		{
-			if (excludingLiteralsFilter(m_cfg)(_conditionalJump.condition))
+			if (excludingLiteralsFilter()(_conditionalJump.condition))
 				result.insert(_conditionalJump.condition);
 		},
 		[](SSACFG::BasicBlock::Terminated const&) {}};
@@ -218,12 +218,11 @@ void LivenessAnalysis::runDagDfs()
 			{
 				for (auto const& phi: m_cfg.block(_successor).phis)
 				{
-					auto const& info = m_cfg.valueInfo(phi);
-					yulAssert(std::holds_alternative<SSACFG::PhiValue>(info), "value info of phi wasn't PhiValue");
-					auto const argIndex = m_cfg.phiArgumentIndex(blockId, _successor);
-					yulAssert(argIndex < std::get<SSACFG::PhiValue>(info).arguments.size());
-					auto const arg = std::get<SSACFG::PhiValue>(info).arguments.at(argIndex);
-					if (!std::holds_alternative<SSACFG::LiteralValue>(m_cfg.valueInfo(arg)))
+					auto const& info = m_cfg.phiInfo(phi);
+					auto const& argIndex = m_cfg.phiArgumentIndex(blockId, _successor);
+					yulAssert(argIndex < info.arguments.size());
+					auto const& arg = info.arguments.at(argIndex);
+					if (!arg.isLiteral())
 						live.insert(arg);
 				}
 			});
@@ -242,11 +241,11 @@ void LivenessAnalysis::runDagDfs()
 			});
 
 		if (std::holds_alternative<SSACFG::BasicBlock::FunctionReturn>(block.exit))
-			for (auto const& returnValue: std::get<SSACFG::BasicBlock::FunctionReturn>(block.exit).returnValues | ranges::views::filter(excludingLiteralsFilter(m_cfg)))
+			for (auto const& returnValue: std::get<SSACFG::BasicBlock::FunctionReturn>(block.exit).returnValues | ranges::views::filter(excludingLiteralsFilter()))
 				live.insert(returnValue);
 
 		// clean out unreachables
-		live.eraseIf([&](auto const& _entry) { return unreachableFilter(m_cfg)(_entry.first); });
+		live.eraseIf([&](auto const& _entry) { return unreachableFilter()(_entry.first); });
 
 		// LiveOut(B) <- live
 		m_liveOuts[blockId.value] = live;
@@ -259,9 +258,9 @@ void LivenessAnalysis::runDagDfs()
 			for (auto const& op: block.operations | ranges::views::reverse)
 			{
 				// remove variables defined at p from live
-				live.eraseAll(op.outputs | ranges::views::filter(excludingLiteralsFilter(m_cfg)) | ranges::to<std::vector>);
+				live.eraseAll(op.outputs | ranges::views::filter(excludingLiteralsFilter()) | ranges::to<std::vector>);
 				// add uses at p to live
-				live.insertAll(op.inputs | ranges::views::filter(excludingLiteralsFilter(m_cfg)) | ranges::to<std::vector>);
+				live.insertAll(op.inputs | ranges::views::filter(excludingLiteralsFilter()) | ranges::to<std::vector>);
 			}
 		}
 
@@ -313,9 +312,9 @@ void LivenessAnalysis::fillOperationsLiveOut()
 			for (auto const& op: operations | ranges::views::reverse)
 			{
 				*rit = live;
-				for (auto const& output: op.outputs | ranges::views::filter(excludingLiteralsFilter(m_cfg)))
+				for (auto const& output: op.outputs | ranges::views::filter(excludingLiteralsFilter()))
 					live.erase(output);
-				for (auto const& input: op.inputs | ranges::views::filter(excludingLiteralsFilter(m_cfg)))
+				for (auto const& input: op.inputs | ranges::views::filter(excludingLiteralsFilter()))
 					live.insert(input);
 				++rit;
 			}

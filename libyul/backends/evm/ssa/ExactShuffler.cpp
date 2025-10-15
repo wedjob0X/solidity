@@ -34,10 +34,8 @@ ReversePhiFunctionTransform::ReversePhiFunctionTransform(
 	auto const argIndex = _cfg.phiArgumentIndex(_from, _to);
 	for (auto const& phiId: _cfg.block(_to).phis)
 	{
-		auto const& phiInfo = _cfg.valueInfo(phiId);
-		yulAssert(std::holds_alternative<SSACFG::PhiValue>(phiInfo));
-		auto const& phi = std::get<SSACFG::PhiValue>(phiInfo);
-		m_reversePhiMap[phiId] = phi.arguments[argIndex];
+		auto const& phiInfo = _cfg.phiInfo(phiId);
+		m_reversePhiMap[phiId] = phiInfo.arguments[argIndex];
 	}
 }
 
