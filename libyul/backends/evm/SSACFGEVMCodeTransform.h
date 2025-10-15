@@ -77,9 +77,8 @@ struct AssemblyCallbacks
 			}
 			case StackSlot::Kind::FunctionCallReturnLabel:
 			{
-				std::optional const call = callSites->functionCall(_slot.functionCallReturnLabel());
-				yulAssert(call);
-				assembly->appendLabelReference(returnLabels->at(*call));
+				auto const& call = callSites->functionCall(_slot.functionCallReturnLabel());
+				assembly->appendLabelReference(returnLabels->at(&call));
 				return;
 			}
 			case StackSlot::Kind::FunctionReturnLabel:

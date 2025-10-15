@@ -50,16 +50,17 @@ public:
 		return std::nullopt;
 	}
 
-	FunctionCall const* functionCall(CallSiteID _callSite) const
+	FunctionCall const& functionCall(CallSiteID _callSite) const
 	{
 		yulAssert(_callSite < m_data.size());
-		return m_data[_callSite];
+		return *m_data[_callSite];
 	}
 
 	CallSiteID addCallSite(FunctionCall const* _functionCall)
 	{
 		if (auto const id = callSiteID(_functionCall))
 			return *id;
+		yulAssert(_functionCall);
 		m_data.emplace_back(_functionCall);
 		return m_data.size() - 1;
 	}
@@ -90,9 +91,9 @@ public:
 	constexpr bool isJunk() const noexcept { return kind() == Kind::Junk; }
 	constexpr Kind kind() const noexcept { return m_kind; }
 
-	ControlFlow::FunctionGraphID functionReturnLabel() const noexcept { return m_payload; }
-	SSACFG::ValueId valueID() const noexcept { return SSACFG::ValueId{static_cast<SSACFG::ValueId::ValueType>(m_payload)}; }
-	CallSites::CallSiteID functionCallReturnLabel() const noexcept { return m_payload; }
+	ControlFlow::FunctionGraphID functionReturnLabel() const noexcept { yulAssert(kind() == Kind::FunctionReturnLabel); return m_payload; }
+	SSACFG::ValueId valueID() const noexcept { yulAssert(kind() == Kind::ValueID); return SSACFG::ValueId{static_cast<SSACFG::ValueId::ValueType>(m_payload)}; }
+	CallSites::CallSiteID functionCallReturnLabel() const noexcept { yulAssert(kind() == Kind::FunctionCallReturnLabel); return m_payload; }
 
 	static constexpr StackSlot makeJunk() { return {Kind::Junk, 0}; }
 	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID) { return {Kind::ValueID, _valueID.value}; }

@@ -243,8 +243,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 		{
 			auto const returnLabelSlot = *(ranges::rbegin(m_stack.data()) + static_cast<std::ptrdiff_t>(operation.inputs.size()));
 			yulAssert(std::holds_alternative<SSACFG::Call>(operation.kind));
-			// todo
-			// yulAssert(returnLabelSlot == Slot{FunctionReturnLabel{&std::get<SSACFG::Call>(operation.kind).call.get()}});
+			yulAssert(returnLabelSlot.isFunctionCallReturnLabel() && &m_stackLayout.callSites.functionCall(returnLabelSlot.functionCallReturnLabel()) == &std::get<SSACFG::Call>(operation.kind).call.get());
 		}
 
 		yulAssert(
