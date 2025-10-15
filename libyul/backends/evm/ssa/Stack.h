@@ -233,10 +233,13 @@ public:
 	{
 		// todo this is not optimal: sometimes i want to dup even if i could push
 		auto const maybeSlot = slotDepth(_slot);
-		if (!(maybeSlot && maybeSlot.value() < reachableStackDepth) && canBeFreelyGenerated(_slot))
+		if (maybeSlot && maybeSlot < reachableStackDepth)
+			dup(_slot);
+		else if (canBeFreelyGenerated(_slot))
 			push(_slot);
 		else
-			dup(_slot);
+			// can't dup because too deep and it's also not something we can freely generate
+			yulAssert(false, "Stack too deep.");
 	}
 
 	bool empty() const { return size() == 0; }
