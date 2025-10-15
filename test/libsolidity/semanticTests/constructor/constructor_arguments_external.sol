@@ -19,8 +19,8 @@ contract Main {
 // bytecodeFormat: legacy,>=EOFv1
 // ----
 // constructor(): "abc", true
-// gas irOptimized: 80228
-// gas irOptimized code: 23400
+// gas irOptimized: 80078
+// gas irOptimized code: 22800
 // gas legacy: 85098
 // gas legacy code: 58200
 // gas legacyOptimized: 80132

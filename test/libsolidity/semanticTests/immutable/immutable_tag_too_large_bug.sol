@@ -41,8 +41,8 @@ contract C {
 // compileViaYul: true
 // ----
 // constructor() ->
-// gas irOptimized: 73545
-// gas irOptimized code: 288800
+// gas irOptimized: 72314
+// gas irOptimized code: 274000
 // gas legacy: 83499
 // gas legacy code: 408800
 // f() -> -1, 1

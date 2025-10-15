@@ -30,7 +30,7 @@ contract C {
 // compileViaYul: true
 // ----
 // test(uint8[][][]): 0x20, 2, 0x40, 0x60, 0, 2, 0x40, 0x80, 1, 7, 2, 8, 9
-// gas irOptimized: 137901
+// gas irOptimized: 137877
 // test2(uint8[][]): 0x20, 2, 0x40, 0x80, 1, 7, 2, 8, 9
-// gas irOptimized: 164494
+// gas irOptimized: 164438
 // gas legacyOptimized: 120228

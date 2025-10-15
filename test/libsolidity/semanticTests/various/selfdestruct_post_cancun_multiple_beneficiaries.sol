@@ -36,8 +36,8 @@ contract D {
 // bytecodeFormat: legacy
 // ----
 // constructor(), 2 ether ->
-// gas irOptimized: 108582
-// gas irOptimized code: 125400
+// gas irOptimized: 107868
+// gas irOptimized code: 116400
 // gas legacy: 120439
 // gas legacy code: 253800
 // gas legacyOptimized: 109015
@@ -47,7 +47,7 @@ contract D {
 // balance -> 2000000000000000000
 // exists() -> false
 // test_deploy_and_terminate_twice() ->
-// gas irOptimized: 121384
+// gas irOptimized: 121370
 // gas irOptimized code: 12600
 // gas legacy: 122386
 // gas legacy code: 43200
