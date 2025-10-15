@@ -52,7 +52,7 @@ public:
 	static SSACFGStackLayout generate(LivenessAnalysis const& _cfgLiveness, TerminationPathAnalysis const& _junkBlockFinder);
 
 private:
-	static void handlePhiFunctions(StackData& _stackData, ReversePhiFunctionTransform const& _phiInverse, LivenessAnalysis::LivenessData const& _liveness);
+	static void handlePhiFunctions(StackData& _stackData, ReversePhiFunctionTransform const& _phiInverse, LivenessAnalysis::LivenessData const& _liveness, SSACFG const& _cfg);
 
 	explicit StackLayoutGenerator(LivenessAnalysis const& _liveness, TerminationPathAnalysis const& _junkBlockFinder);
 

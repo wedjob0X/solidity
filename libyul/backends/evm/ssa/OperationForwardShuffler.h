@@ -42,14 +42,15 @@ public:
 		Stack& _stack,
 		std::vector<Slot> const& _args,
 		LivenessAnalysis::LivenessData const& _liveOut,
-		bool _generateJunk
+		bool _generateJunk,
+		SSACFG const& _cfg
 	)
 	{
 		yulAssert(ranges::none_of(_args, [](auto const& _slot) { return _slot.isJunk(); }));
 
 		constexpr std::size_t maxIterations = 1000;
 		std::size_t i = 0;
-		for (; i < maxIterations && shuffleStep(_stack, _args, _liveOut, _generateJunk); ++i) {}
+		for (; i < maxIterations && shuffleStep(_stack, _args, _liveOut, _generateJunk, _cfg); ++i) {}
 		yulAssert(i < maxIterations, fmt::format("Maximum iterations reached on {}", stackToString(_stack.data())));
 	}
 
@@ -121,7 +122,7 @@ private:
 
 	struct Ops
 	{
-		Ops(Stack const& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut):
+		Ops(Stack const& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut, SSACFG const& _cfg):
 			stackStats(_stack, _args.size()),
 			targetMinCounts(detail::histogram(_args)),
 			stack(_stack),
@@ -130,7 +131,7 @@ private:
 		{
 			for (auto const& _liveValueId: _liveOut | ranges::views::keys)
 			{
-				auto const [it, _] = targetMinCounts.try_emplace(Slot::makeValueID(_liveValueId));
+				auto const [it, _] = targetMinCounts.try_emplace(Slot::makeValueID(_liveValueId, _cfg));
 				++it->second;
 			}
 		}
@@ -303,10 +304,11 @@ private:
 		Stack& _stack,
 		std::vector<Slot> const& _args,
 		LivenessAnalysis::LivenessData const& _liveOut,
-		bool const _generateJunk
+		bool const _generateJunk,
+		SSACFG const& _cfg
 	)
 	{
-		Ops const ops(_stack, _args, _liveOut);
+		Ops const ops(_stack, _args, _liveOut, _cfg);
 
 		// Check if we have the required top already
 		if (ops.argsRegionIsCorrect())

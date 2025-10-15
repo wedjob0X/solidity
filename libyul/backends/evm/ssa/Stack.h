@@ -32,7 +32,6 @@
 namespace solidity::yul
 {
 
-class AbstractAssembly;
 struct FunctionCall;
 
 namespace ssa
@@ -86,6 +85,7 @@ public:
 	constexpr StackSlot& operator=(StackSlot&&) = default;
 
 	constexpr bool isValueID() const noexcept { return kind() == Kind::ValueID; }
+	constexpr bool isLiteralValueID() const noexcept { return m_literal; }
 	constexpr bool isFunctionReturnLabel() const noexcept { return kind() == Kind::FunctionReturnLabel; }
 	constexpr bool isFunctionCallReturnLabel() const noexcept { return kind() == Kind::FunctionCallReturnLabel; }
 	constexpr bool isJunk() const noexcept { return kind() == Kind::Junk; }
@@ -95,10 +95,10 @@ public:
 	SSACFG::ValueId valueID() const noexcept { yulAssert(kind() == Kind::ValueID); return SSACFG::ValueId{static_cast<SSACFG::ValueId::ValueType>(m_payload)}; }
 	CallSites::CallSiteID functionCallReturnLabel() const noexcept { yulAssert(kind() == Kind::FunctionCallReturnLabel); return m_payload; }
 
-	static constexpr StackSlot makeJunk() { return {Kind::Junk, 0}; }
-	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID) { return {Kind::ValueID, _valueID.value}; }
-	static constexpr StackSlot makeFunctionReturnLabel(ControlFlow::FunctionGraphID const _graphID) { return {Kind::FunctionReturnLabel, _graphID}; }
-	static constexpr StackSlot makeFunctionCallReturnLabel(CallSites::CallSiteID const _callSiteID) { return {Kind::FunctionCallReturnLabel, _callSiteID};	}
+	static constexpr StackSlot makeJunk() { return {Kind::Junk, false, 0}; }
+	static constexpr StackSlot makeValueID(SSACFG::ValueId const& _valueID, SSACFG const& _cfg) { return {Kind::ValueID, _cfg.isLiteralValue(_valueID), _valueID.value}; }
+	static constexpr StackSlot makeFunctionReturnLabel(ControlFlow::FunctionGraphID const _graphID) { return {Kind::FunctionReturnLabel, false, _graphID}; }
+	static constexpr StackSlot makeFunctionCallReturnLabel(CallSites::CallSiteID const _callSiteID) { return {Kind::FunctionCallReturnLabel, false, _callSiteID};	}
 
 	bool operator<(StackSlot const& _other) const
 	{
@@ -110,12 +110,14 @@ public:
 
 	auto operator<=>(StackSlot const&) const = default;
 private:
-	constexpr StackSlot(Kind const _kind, std::uint32_t const _payload):
+	constexpr StackSlot(Kind const _kind, bool const _literal, std::uint32_t const _payload):
 		m_kind(_kind),
+		m_literal(_literal),
 		m_payload(_payload)
 	{}
 
 	Kind m_kind;
+	bool m_literal;
 	std::uint32_t m_payload;
 };
 
@@ -130,28 +132,6 @@ std::string slotToString(StackSlot const& _slot);
 std::string slotToString(StackSlot const& _slot, SSACFG const& _cfg);
 std::string stackToString(StackData const& _stackData, SSACFG const& _cfg);
 std::string stackToString(StackData const& _stackData);
-
-template<typename CanBeFreelyGenerated>
-concept CanBeFreelyGeneratedConcept = requires(
-	CanBeFreelyGenerated _canBeFreelyGenerated,
-	StackSlot _slot
-)
-{
-	{ _canBeFreelyGenerated(_slot) } -> std::same_as<bool>;
-};
-
-struct SlotCanBeFreelyGenerated
-{
-	bool operator()(StackSlot const& _slot) const
-	{
-		if (_slot.isValueID())
-			return m_cfg->isLiteralValue(_slot.valueID());
-		return _slot.isJunk() || _slot.isFunctionReturnLabel() || _slot.isFunctionCallReturnLabel();
-	}
-
-	SSACFG const* m_cfg;
-};
-static_assert(CanBeFreelyGeneratedConcept<SlotCanBeFreelyGenerated>);
 
 template<typename StackManipulationCallback>
 concept StackManipulationCallbackConcept = requires(
@@ -176,27 +156,23 @@ struct NoOpStackManipulationCallbacks
 static_assert(StackManipulationCallbackConcept<NoOpStackManipulationCallbacks>);
 
 template<
-	StackManipulationCallbackConcept CallbacksType = NoOpStackManipulationCallbacks,
-	CanBeFreelyGeneratedConcept CanBeFreelyGeneratedType = SlotCanBeFreelyGenerated
+	StackManipulationCallbackConcept CallbacksType = NoOpStackManipulationCallbacks
 >
 class Stack
 {
 	static size_t constexpr reachableStackDepth = 16;
 public:
 	using Callbacks = CallbacksType;
-	using CanBeFreelyGenerated = CanBeFreelyGeneratedType;
 
 	using Slot = StackSlot;
 	using Data = StackData;
 
 	Stack(
 		Data& _data,
-		Callbacks _callbacks,
-		CanBeFreelyGenerated _canBeFreelyGenerated
+		Callbacks _callbacks
 	):
 		m_data(&_data),
-		m_callbacks(std::move(_callbacks)),
-		m_canBeFreelyGenerated(std::move(_canBeFreelyGenerated))
+		m_callbacks(std::move(_callbacks))
 	{}
 
 	Slot const& top() const
@@ -275,9 +251,9 @@ public:
 		return util::findOffset((*m_data) | ranges::views::reverse, _value);
 	}
 
-	bool canBeFreelyGenerated(Slot const& _slot) const
+	static bool constexpr canBeFreelyGenerated(Slot const& _slot)
 	{
-		return m_canBeFreelyGenerated(_slot);
+		return _slot.isLiteralValueID() || _slot.isJunk() || _slot.isFunctionCallReturnLabel();
 	}
 
 	Slot const& operator[](size_t const _index) const { return (*m_data)[_index]; }
@@ -307,17 +283,11 @@ public:
 		return *m_data;
 	}
 
-	CanBeFreelyGenerated const& canBeFreelyGeneratedFunction() const
-	{
-		return m_canBeFreelyGenerated;
-	}
-
 	Callbacks const& callbacks() const { return m_callbacks; }
 
 private:
 	Data* m_data;
 	Callbacks m_callbacks;
-	CanBeFreelyGenerated m_canBeFreelyGenerated;
 };
 
 }

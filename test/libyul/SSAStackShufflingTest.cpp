@@ -53,11 +53,17 @@ SSAStackShufflingTest::Stack::Data SSAStackShufflingTest::parse(std::string cons
 	{
 		std::string literal = scanner.currentLiteral();
 		if (literal.find("0x") != std::string::npos || scanner.currentToken() == Token::Number)
-			stackData.emplace_back(ssa::StackSlot::makeValueID(m_cfg->newLiteral(DebugData::create(), u256(literal))));
+		{
+			auto const valueID = m_cfg->newLiteral(DebugData::create(), u256(literal));
+			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID, *m_cfg));
+		}
 		else if (literal == "JUNK")
 			stackData.emplace_back(ssa::StackSlot::makeJunk());
 		else
-			stackData.emplace_back(ssa::StackSlot::makeValueID({0}));
+		{
+			auto const valueID = m_cfg->newLiteral(DebugData::create(), u256(0));
+			stackData.emplace_back(ssa::StackSlot::makeValueID(valueID, *m_cfg));
+		}
 		scanner.next();
 	}
 	if (scanner.currentToken() != Token::RBrack)
@@ -79,9 +85,9 @@ SSAStackShufflingTest::SSAStackShufflingTest(std::string const& _filename):
 		return cfg;
 	}()),
 	m_sourceData(parse(m_reader.source())),
-	m_sourceStack(m_sourceData, {}, {&*m_cfg}),
+	m_sourceStack(m_sourceData, {}),
 	m_targetData(parse(m_reader.source())),
-	m_targetStack(m_targetData, {}, {&*m_cfg})
+	m_targetStack(m_targetData, {})
 {
 	processSettings();
 	m_source = m_reader.source();

@@ -331,7 +331,7 @@ private:
 					{
 						result.emplace_back(_state, Operation{Operation::Type::SWAP, i, std::nullopt});
 						auto& state = std::get<0>(result.back());
-						Stack stack(state.stackData, {}, _stack.canBeFreelyGeneratedFunction());
+						Stack stack(state.stackData, {});
 						stack.swap(i);
 					}
 				}
@@ -357,7 +357,7 @@ private:
 					auto const& [depth, slotToDup] = candidates[j];
 					result.emplace_back(_state, Operation{Operation::Type::DUP, depth, slotToDup});
 					State& state = std::get<0>(result.back());
-					Stack stack(state.stackData, {}, _stack.canBeFreelyGeneratedFunction());
+					Stack stack(state.stackData, {});
 					stack.dup(slotToDup);
 					state.histogram[state.stackData.back()] += 1;
 				}
@@ -385,7 +385,7 @@ private:
 					{
 						result.emplace_back(_state, Operation{Operation::Type::JUNK, _state.stackData.size() - i - 1});
 						State& state = std::get<0>(result.back());
-						Stack stack(state.stackData, {}, _stack.canBeFreelyGeneratedFunction());
+						Stack stack(state.stackData, {});
 						state.histogram[_state.stackData[i]] -= 1;
 						std::get<1>(result.back()).apply(stack);
 						state.histogram[Slot::makeJunk()] += 1;

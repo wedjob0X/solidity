@@ -153,7 +153,7 @@ SSACFGEVMCodeTransform::SSACFGEVMCodeTransform
 		.returnLabels = &m_returnLabels
 	},
 	m_stackData(m_stackLayout.blockLayouts[m_cfg.entry.value].stackIn),
-	m_stack(m_stackData, m_assemblyCallbacks, {&_cfg}),
+	m_stack(m_stackData, m_assemblyCallbacks),
 	m_functionLabels(std::move(_functionLabels)),
 	m_generatedBlocks(_cfg.numBlocks(), false)
 {
@@ -186,7 +186,7 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 	auto const& blockLayout = m_stackLayout[_block];
 	assertLayoutCompatibility(m_stack.data(), blockLayout.stackIn);
 	m_stackData = blockLayout.stackIn;
-	m_stack = Stack(m_stackData, m_assemblyCallbacks, {&m_cfg}); // this can set some stuff to junk
+	m_stack = Stack(m_stackData, m_assemblyCallbacks); // this can set some stuff to junk
 	// todo assert on all exits that the stack height is fine
 	yulAssert(static_cast<int>(m_stack.size()) == m_assembly.stackHeight());
 
@@ -343,8 +343,8 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			{
 				returnSlots.reserve(_return.returnValues.size());
 				for (std::size_t i = 1; i < _return.returnValues.size(); ++i)
-					returnSlots.emplace_back(Slot::makeValueID(_return.returnValues[i]));
-				returnSlots.emplace_back(Slot::makeValueID(_return.returnValues.front()));
+					returnSlots.emplace_back(Slot::makeValueID(_return.returnValues[i], m_cfg));
+				returnSlots.emplace_back(Slot::makeValueID(_return.returnValues.front(), m_cfg));
 
 				shuffleStack(returnSlots);
 				// stack = [..., label, ret2, ..., retn, ret1]
@@ -413,7 +413,7 @@ void SSACFGEVMCodeTransform::performOperation(SSACFG::Operation const& _operatio
 	for (size_t i = 0; i < _operation.inputs.size(); ++i)
 		m_stack.pop<false>();
 	for (auto value: _operation.outputs)
-		m_stack.push<false>(Slot::makeValueID(value));
+		m_stack.push<false>(Slot::makeValueID(value, m_cfg));
 
 	if constexpr (debugOutput)
 		std::cout << " -> " << stackToString(m_stack.data(), m_cfg) << std::endl;
