@@ -285,7 +285,7 @@ void LivenessAnalysis::runLoopTreeDfs(SSACFG::BlockId::ValueType const _loopHead
 		// must be live out of header if live in of children
 		m_liveOuts[_loopHeader].maxUnion(liveLoop);
 		// for each blockId \in children(loopHeader)
-		for (size_t blockIdValue = 0; blockIdValue < m_cfg.numBlocks(); ++blockIdValue)
+		for (SSACFG::BlockId::ValueType blockIdValue = 0u; blockIdValue < m_cfg.numBlocks(); ++blockIdValue)
 			if (m_loopNestingForest.loopParents()[blockIdValue] == _loopHeader)
 			{
 				// propagate loop liveness information down to the loop header's children

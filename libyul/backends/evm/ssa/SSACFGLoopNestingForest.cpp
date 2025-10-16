@@ -18,6 +18,8 @@
 
 #include <libyul/backends/evm/ssa/SSACFGLoopNestingForest.h>
 
+#include <range/v3/algorithm/reverse.hpp>
+
 using namespace solidity::yul::ssa;
 
 SSACFGLoopNestingForest::SSACFGLoopNestingForest(ForwardSSACFGTopologicalSort const& _sort):
@@ -28,7 +30,7 @@ SSACFGLoopNestingForest::SSACFGLoopNestingForest(ForwardSSACFGTopologicalSort co
 {
 	auto dfsOrder = m_sort.preOrder();
 	// we go from innermost to outermost
-	std::reverse(dfsOrder.begin(), dfsOrder.end());
+	ranges::reverse(dfsOrder);
 
 	for (auto const& blockId: dfsOrder)
 		findLoop(blockId);

@@ -61,7 +61,7 @@ public:
 			return *id;
 		yulAssert(_functionCall);
 		m_data.emplace_back(_functionCall);
-		return m_data.size() - 1;
+		return static_cast<CallSiteID>(m_data.size() - 1);
 	}
 private:
 	std::vector<FunctionCall const*> m_data;
@@ -103,8 +103,8 @@ public:
 	auto operator<=>(StackSlot const&) const = default;
 private:
 	constexpr StackSlot(std::uint32_t const _payload, Kind const _kind, SSACFG::ValueId::Kind const _valueIdKind = SSACFG::ValueId::Kind::Unreachable):
-		m_kind(_kind),
 		m_payload(_payload),
+		m_kind(_kind),
 		m_valueIdKind(_valueIdKind)
 	{}
 

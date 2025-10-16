@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_SUITE(DisjointSetTest)
 
 BOOST_AUTO_TEST_CASE(full_union)
 {
-	ContiguousDisjointSet ds(10);
+	ContiguousDisjointSet<std::uint32_t> ds(10);
 	for (size_t i = 1; i < 10; ++i)
 	{
 		BOOST_CHECK(!ds.sameSubset(0, i));
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(full_union)
 
 BOOST_AUTO_TEST_CASE(pairs)
 {
-	ContiguousDisjointSet ds(10);
+	ContiguousDisjointSet<std::uint32_t> ds(10);
 	BOOST_CHECK_EQUAL(ds.numSets(), 10);
 	BOOST_CHECK_EQUAL(ds.subsets().size(), 10);
 
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(pairs)
 
 BOOST_AUTO_TEST_CASE(merge_with_fixed_representative)
 {
-	ContiguousDisjointSet ds(10);
+	ContiguousDisjointSet<std::uint32_t> ds(10);
 	ds.merge(5, 3, false);
 	BOOST_CHECK_EQUAL(ds.find(5), 5);
 	ds.merge(1, 2);

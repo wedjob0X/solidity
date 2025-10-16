@@ -38,7 +38,7 @@ ForwardSSACFGTopologicalSort::ForwardSSACFGTopologicalSort(SSACFG const& _cfg):
 void ForwardSSACFGTopologicalSort::dfs(SSACFG::BlockId::ValueType const _vertex) {
 	yulAssert(!m_explored[_vertex]);
 	m_explored[_vertex] = true;
-	m_blockWisePreOrder[_vertex] = m_preOrder.size();
+	m_blockWisePreOrder[_vertex] = static_cast<SSACFG::BlockId::ValueType>(m_preOrder.size());
 	m_blockWiseMaxSubtreePreOrder[_vertex] = m_blockWisePreOrder[_vertex];
 	m_preOrder.push_back(_vertex);
 

@@ -54,7 +54,7 @@ private:
 	ForwardSSACFGTopologicalSort const& m_sort;
 	SSACFG const& m_cfg;
 
-	util::ContiguousDisjointSet m_vertexPartition;
+	util::ContiguousDisjointSet<BlockIdValue> m_vertexPartition;
 	std::vector<BlockIdValue> m_loopParents;
 	std::set<BlockIdValue> m_loopNodes;
 	std::set<BlockIdValue> m_loopRootNodes;

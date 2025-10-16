@@ -42,15 +42,14 @@ public:
 		Stack& _stack,
 		std::vector<Slot> const& _args,
 		LivenessAnalysis::LivenessData const& _liveOut,
-		bool _generateJunk,
-		SSACFG const& _cfg
+		bool _generateJunk
 	)
 	{
 		yulAssert(ranges::none_of(_args, [](auto const& _slot) { return _slot.isJunk(); }));
 
 		constexpr std::size_t maxIterations = 1000;
 		std::size_t i = 0;
-		for (; i < maxIterations && shuffleStep(_stack, _args, _liveOut, _generateJunk, _cfg); ++i) {}
+		for (; i < maxIterations && shuffleStep(_stack, _args, _liveOut, _generateJunk); ++i) {}
 		yulAssert(i < maxIterations, fmt::format("Maximum iterations reached on {}", stackToString(_stack.data())));
 	}
 
@@ -122,7 +121,7 @@ private:
 
 	struct Ops
 	{
-		Ops(Stack const& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut, SSACFG const& _cfg):
+		Ops(Stack const& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut):
 			stackStats(_stack, _args.size()),
 			targetMinCounts(detail::histogram(_args)),
 			stack(_stack),
@@ -304,11 +303,10 @@ private:
 		Stack& _stack,
 		std::vector<Slot> const& _args,
 		LivenessAnalysis::LivenessData const& _liveOut,
-		bool const _generateJunk,
-		SSACFG const& _cfg
+		bool const _generateJunk
 	)
 	{
-		Ops const ops(_stack, _args, _liveOut, _cfg);
+		Ops const ops(_stack, _args, _liveOut);
 
 		// Check if we have the required top already
 		if (ops.argsRegionIsCorrect())

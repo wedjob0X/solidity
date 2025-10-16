@@ -36,7 +36,7 @@
 
 namespace solidity::yul
 {
-class AsmAnalysisInfo;
+struct AsmAnalysisInfo;
 namespace ssa
 {
 

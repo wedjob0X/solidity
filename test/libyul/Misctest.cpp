@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(yo)
 				<< fmt::format("{{ {} }} + ", fmt::join(r, ", "))
 				<< fmt::format("[ {} ]\n", fmt::join(args | t2, ", "));
 		}
-		ssa::OperationForwardShuffler<TestStack>::shuffle(*stack, args, liveness, true, *cfg);
+		ssa::OperationForwardShuffler<TestStack>::shuffle(*stack, args, liveness, true);
 		std::cout << "--- fin ---" << std::endl;
 		std::cout << ssa::stackToString(stack->data(), *cfg) << std::endl;
 		final = stack->data();

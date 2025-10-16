@@ -59,7 +59,7 @@ std::string stackToString(Stack<>::Data const& _stackData)
 			fmt::join(_stackData | ranges::views::drop(numJunk) | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot); }), ", ")
 		);
 
-	return format(
+	return fmt::format(
 		"[{}]",
 		fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot); }), ", ")
 	);
@@ -69,13 +69,13 @@ std::string stackToString(Stack<>::Data const& _stackData, SSACFG const& _cfg)
 {
 	auto const numJunk = junkTailSize(_stackData);
 	if (numJunk > 0)
-		return format(
+		return fmt::format(
 			"[JUNK x {}, {}]",
 			numJunk,
 			fmt::join(_stackData | ranges::views::drop(numJunk) | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot, _cfg); }), ", ")
 		);
 
-	return format(
+	return fmt::format(
 		"[{}]",
 		fmt::join(_stackData | ranges::views::transform([&](auto const& _slot) { return slotToString(_slot, _cfg); }), ", ")
 	);

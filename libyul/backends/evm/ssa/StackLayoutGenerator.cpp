@@ -63,47 +63,6 @@ void declareJunk(StackLayoutGenerator::StackType& _stack, LivenessAnalysis::Live
 	}
 }
 
-void reduceStackToLiveness(StackLayoutGenerator::StackType& _stack, std::set<SSACFG::ValueId> const& _livenessPreImage, bool const _introduceJunk)
-{
-	// if we are allowed to introduce junk, we'll just declare everything in the stack tail that is not part of the liveness
-	// set as junk until we find something that has relevance. That way the stack closer to the top is kept compact
-	// and the end part can be safely discarded
-	if (_introduceJunk)
-		for (size_t i = 0; i < _stack.size(); ++i)
-		{
-			if (!_stack[i].isValueID() && !_stack[i].isJunk())
-				break;
-
-			if (auto const slot = _stack.slot(i); slot.isValueID())
-			{
-				if (_livenessPreImage.contains(slot.valueID()))
-					break;
-				_stack.declareJunk(_stack.size() - i - 1);
-			}
-		}
-
-	// pop everything not in the combined pre image
-	// we can ignore the phi function pre-image slots because they are definitely in the combined liveness
-	while (
-		_stack.size() > 0 &&
-		_stack.top().isValueID() &&
-		!_livenessPreImage.contains(_stack.top().valueID())
-	)
-		_stack.pop();
-	for (auto it = _stack.data().rbegin(); it != _stack.data().rend(); ++it)
-	{
-		if (it->isValueID() && !_livenessPreImage.contains(it->valueID()))
-		{
-			yulAssert(it != _stack.data().rbegin()); // this shouldn't happen as we have already popped everything up front
-			auto const depth = static_cast<std::size_t>(std::distance(_stack.data().rbegin(), it));
-			if (depth > 0)
-				_stack.swap(depth);
-			_stack.pop();
-		}
-	}
-}
-
-
 }
 
 StackLayoutGenerator::StackLayoutGenerator(LivenessAnalysis const& _liveness, TerminationPathAnalysis const& _junkBlockFinder):
@@ -124,7 +83,7 @@ SSACFGStackLayout StackLayoutGenerator::generate(LivenessAnalysis const& _cfgLiv
 				  << (_cfgLiveness.cfg().function ? _cfgLiveness.cfg().function->name.str() : "main graph") << '\n';
 	return StackLayoutGenerator{_cfgLiveness, _junkBlockFinder}.computeStackLayout();
 }
-void StackLayoutGenerator::handlePhiFunctions(StackData& _stackData, ReversePhiFunctionTransform const& _phiInverse, LivenessAnalysis::LivenessData const& _liveness, SSACFG const& _cfg)
+void StackLayoutGenerator::handlePhiFunctions(StackData& _stackData, ReversePhiFunctionTransform const& _phiInverse, LivenessAnalysis::LivenessData const& _liveness)
 {
 	// add any phi function values here that are not already contained in the stack
 	for (auto const& [phi, preImage]: _phiInverse.data())
@@ -233,7 +192,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 		m_stackLayout[_blockId].stackIn = *parentExits[0].second;
 
 		if (!block.phis.empty())
-			handlePhiFunctions(m_stackLayout[_blockId].stackIn, ReversePhiFunctionTransform(m_cfg, parentExits[0].first, _blockId), m_liveness.liveIn(_blockId), m_cfg);
+			handlePhiFunctions(m_stackLayout[_blockId].stackIn, ReversePhiFunctionTransform(m_cfg, parentExits[0].first, _blockId), m_liveness.liveIn(_blockId));
 
 		/*StackType stackIn(m_stackLayout[_blockId].stackIn, {}, {&m_cfg});
 		declareJunk(stackIn, liveIn);
@@ -302,7 +261,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 				StackType stack(referenceStackIn, {});
 				declareJunk(stack, liveIn);
 			}
-			handlePhiFunctions(referenceStackIn, ReversePhiFunctionTransform(m_cfg, parentExits[i].first, _blockId), liveIn, m_cfg);
+			handlePhiFunctions(referenceStackIn, ReversePhiFunctionTransform(m_cfg, parentExits[i].first, _blockId), liveIn);
 			for (size_t j = 0; j < parentExits.size(); ++j)
 			{
 				if (j != i)
@@ -324,7 +283,7 @@ void StackLayoutGenerator::defineStackIn(SSACFG::BlockId const& _blockId)
 		m_stackLayout[_blockId].stackIn = *parentExits[argMin].second;
 		StackType stack(m_stackLayout[_blockId].stackIn, {});
 		declareJunk(stack, liveIn);
-		handlePhiFunctions(m_stackLayout[_blockId].stackIn, ReversePhiFunctionTransform(m_cfg, parentExits[argMin].first, _blockId), liveIn, m_cfg);
+		handlePhiFunctions(m_stackLayout[_blockId].stackIn, ReversePhiFunctionTransform(m_cfg, parentExits[argMin].first, _blockId), liveIn);
 		//m_stackLayout[_blockId].stackIn = unifiedStack | ranges::views::reverse | ranges::to<std::vector>;
 	}
 
@@ -391,7 +350,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		if constexpr(debugOutput)
 			std::cout << "{ " << stackToString(liveOutWithoutOutputs | ranges::views::transform(Slot::makeValueID) | ranges::to<std::vector>, m_cfg) << " } + " << stackToString(requiredStackTop, m_cfg) << ") -> " << std::flush;
 
-		OperationForwardShuffler<StackType>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId), m_cfg);
+		OperationForwardShuffler<StackType>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId));
 
 		m_stackLayout[_blockId].operationIn.push_back(currentStackData);
 
@@ -464,7 +423,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		m_blockHasStackInDefined[cjump->nonZero.value] = true;
 		// same as nonzero stack in initially
 		m_stackLayout[cjump->zero].stackIn = m_stackLayout[cjump->nonZero].stackIn;
-		handlePhiFunctions(m_stackLayout[cjump->zero].stackIn, ReversePhiFunctionTransform(m_cfg, _blockId, cjump->zero), zeroLiveIn, m_cfg);
+		handlePhiFunctions(m_stackLayout[cjump->zero].stackIn, ReversePhiFunctionTransform(m_cfg, _blockId, cjump->zero), zeroLiveIn);
 		{
 			StackType zeroStack(m_stackLayout[cjump->zero].stackIn, {});
 			declareJunk(zeroStack, zeroLiveIn);

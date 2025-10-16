@@ -143,7 +143,6 @@ SSACFGEVMCodeTransform::SSACFGEVMCodeTransform
 	m_assembly(_assembly),
 	m_builtinContext(_builtinContext),
 	m_cfg(_cfg),
-	m_liveness(_liveness),
 	m_junkBlockFinder(_cfg, _liveness.topologicalSort()),
 	m_stackLayout(StackLayoutGenerator::generate(_liveness, m_junkBlockFinder)),
 	m_assemblyCallbacks{
@@ -193,7 +192,6 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 	yulAssert(m_cfg.block(_block).operations.size() == blockLayout.operationIn.size(), "We need as many stack layouts as we have operations");
 
 	// for each op with respective live-out, descend into op
-	size_t operationIndex = 0;
 	for (auto const& [operation, operationStackIn]: ranges::views::zip( m_cfg.block(_block).operations, blockLayout.operationIn))
 	{
 		bool const hasReturnLabel = std::holds_alternative<SSACFG::Call>(operation.kind)
@@ -268,7 +266,6 @@ void SSACFGEVMCodeTransform::operator()(SSACFG::BlockId const _block)
 			static_cast<int>(m_stack.size()) == m_assembly.stackHeight(),
 			fmt::format("symbolic stack size = {} =/= {} = assembly stack height", m_stack.size(), m_assembly.stackHeight())
 		);
-		++operationIndex;
 	}
 
 	shuffleStack(m_stackLayout[_block].stackOut);

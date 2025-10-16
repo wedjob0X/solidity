@@ -264,7 +264,7 @@ public:
 		m_literals.emplace_back(std::move(_debugData), std::move(_value));
 		auto const value = m_literals.size() - 1;
 		yulAssert(value <= std::numeric_limits<ValueId::ValueType>::max());
-		auto const literalId = ValueId::makeLiteral(value);
+		auto const literalId = ValueId::makeLiteral(static_cast<ValueId::ValueType>(value));
 		m_literalMapping.emplace(_value, literalId);
 		return literalId;
 	}
