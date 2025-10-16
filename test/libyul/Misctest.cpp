@@ -120,10 +120,10 @@ BOOST_AUTO_TEST_CASE(yo)
 	auto const v141 = cfg->newVariable({0});
 
 	std::vector slotsRef {
-		SourceSlot::makeValueID(v113, *cfg), SourceSlot::makeValueID(v115, *cfg), SourceSlot::makeValueID(v119, *cfg), SourceSlot::makeValueID(v136, *cfg), SourceSlot::makeValueID(v139, *cfg), SourceSlot::makeValueID(v141, *cfg)
+		SourceSlot::makeValueID(v113), SourceSlot::makeValueID(v115), SourceSlot::makeValueID(v119), SourceSlot::makeValueID(v136), SourceSlot::makeValueID(v139), SourceSlot::makeValueID(v141)
 	};
 	ssa::LivenessAnalysis::LivenessData liveness({{v113, 1}, {v115, 1}, {v119, 1}});
-	TestStack::Data args{SourceSlot::makeValueID(thirtytwo, *cfg), SourceSlot::makeValueID(zero, *cfg), SourceSlot::makeValueID(v139, *cfg), SourceSlot::makeValueID(v136, *cfg), SourceSlot::makeValueID(two, *cfg), SourceSlot::makeValueID(v141, *cfg)};
+	TestStack::Data args{SourceSlot::makeValueID(thirtytwo), SourceSlot::makeValueID(zero), SourceSlot::makeValueID(v139), SourceSlot::makeValueID(v136), SourceSlot::makeValueID(two), SourceSlot::makeValueID(v141)};
 	std::vector<SourceSlot> final;
 
 	{
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(yo)
 		std::cout << fmt::format("--- start shuffle with {} ---", ssa::stackToString(stack->data(), *cfg)) << std::endl;
 		// TestStack::Data args{v79, v68};
 		{
-			auto const t = ranges::views::transform([&](ssa::SSACFG::ValueId _valueId) { return ssa::slotToString(SourceSlot::makeValueID(_valueId, *cfg), *cfg); });
+			auto const t = ranges::views::transform([&](ssa::SSACFG::ValueId _valueId) { return ssa::slotToString(SourceSlot::makeValueID(_valueId), *cfg); });
 			auto const t2 = ranges::views::transform([&](SourceSlot const& _slot) { return ssa::slotToString(_slot, *cfg); });
 			auto r = liveness | ranges::views::keys | t;
 			std::cout

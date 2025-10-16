@@ -20,7 +20,7 @@ using namespace solidity::yul;
 using namespace solidity::yul::ssa;
 
 #if !defined(NDEBUG)
-bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = true;
+bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = false;
 #else
 bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = false;
 #endif
@@ -28,7 +28,7 @@ bool StackLayoutGenerator::StackManipulationCallbacks::writeCallbackOutput = fal
 namespace
 {
 #if !defined(NDEBUG)
-bool constexpr debugOutput = true;
+bool constexpr debugOutput = false;
 #else
 bool constexpr debugOutput = false;
 #endif
@@ -409,7 +409,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		if constexpr(debugOutput)
 		{
 			#if !defined(NDEBUG)
-			StackManipulationCallbacks::writeCallbackOutput = true;
+			StackManipulationCallbacks::writeCallbackOutput = false;
 			#endif
 			fmt::print(" -> {}\n", stackToString(currentStackData, m_cfg));
 		}
