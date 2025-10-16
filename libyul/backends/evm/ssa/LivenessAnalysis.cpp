@@ -271,7 +271,7 @@ void LivenessAnalysis::runDagDfs()
 	}
 }
 
-void LivenessAnalysis::runLoopTreeDfs(size_t const _loopHeader)
+void LivenessAnalysis::runLoopTreeDfs(SSACFG::BlockId::ValueType const _loopHeader)
 {
 	// SSA Book, Algorithm 9.3
 	if (m_loopNestingForest.loopNodes().contains(_loopHeader))

@@ -45,7 +45,7 @@ using namespace solidity::yul;
 using namespace solidity::yul::ssa;
 
 #if !defined(NDEBUG)
-bool constexpr debugOutput = true;
+bool constexpr debugOutput = false;
 #else
 bool constexpr debugOutput = false;
 #endif

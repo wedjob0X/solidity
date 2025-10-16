@@ -115,7 +115,7 @@ static void BM_SSACFGStackLayoutGenerator(benchmark::State& state) {
 	}
 }
 
-BENCHMARK(BM_BuildSSACFG);
-BENCHMARK(BM_SSACFGLiveness);
+//BENCHMARK(BM_BuildSSACFG);
+//BENCHMARK(BM_SSACFGLiveness);
 BENCHMARK(BM_SSACFGStackLayoutGenerator);
 BENCHMARK_MAIN();

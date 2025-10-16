@@ -49,7 +49,7 @@ namespace
 {
 
 #if !defined(NDEBUG)
-bool constexpr debugOutput = true;
+bool constexpr debugOutput = false;
 #else
 bool constexpr debugOutput = true;
 #endif
