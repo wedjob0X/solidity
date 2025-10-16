@@ -85,7 +85,7 @@ public:
 	constexpr StackSlot& operator=(StackSlot&&) = default;
 
 	constexpr bool isValueID() const noexcept { return kind() == Kind::ValueID; }
-	constexpr bool isLiteralValueID() const noexcept { return isValueID() && m_valueIdKind == SSACFG::ValueId::Kind::Literal; }
+	constexpr bool isLiteralValueID() const noexcept { return m_valueIdKind == SSACFG::ValueId::Kind::Literal; }
 	constexpr bool isFunctionReturnLabel() const noexcept { return kind() == Kind::FunctionReturnLabel; }
 	constexpr bool isFunctionCallReturnLabel() const noexcept { return kind() == Kind::FunctionCallReturnLabel; }
 	constexpr bool isJunk() const noexcept { return kind() == Kind::Junk; }
