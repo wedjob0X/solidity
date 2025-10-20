@@ -1,6 +1,7 @@
 #pragma once
 
 #include <libyul/backends/evm/ssa/LivenessAnalysis.h>
+#include <libyul/backends/evm/ssa/Stack.h>
 
 #include <range/v3/algorithm/equal.hpp>
 #include <range/v3/algorithm/find.hpp>
@@ -32,14 +33,14 @@ std::map<Slot, size_t> histogram(Slots const& _slots)
 }
 }
 
-template<typename Stack, size_t ReachableStackDepth=16>
+template<StackManipulationCallbackConcept Callback, size_t ReachableStackDepth=16>
 class OperationForwardShuffler
 {
 	using Slot = StackSlot;
 
 public:
 	static void shuffle(
-		Stack& _stack,
+		Stack<Callback>& _stack,
 		std::vector<Slot> const& _args,
 		LivenessAnalysis::LivenessData const& _liveOut,
 		bool _generateJunk
@@ -54,7 +55,7 @@ public:
 	}
 
 private:
-	static std::ptrdiff_t loss(Stack::Data const& _stackData, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut)
+	static std::ptrdiff_t loss(Stack<Callback>::Data const& _stackData, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut)
 	{
 		std::ptrdiff_t result = 0;
 
@@ -81,7 +82,7 @@ private:
 
 	struct StackStats
 	{
-		StackStats(Stack const& _stack, size_t _argsRegionSize)
+		StackStats(Stack<Callback> const& _stack, size_t _argsRegionSize)
 		{
 			histogramTail = detail::histogram(_stack.data() | ranges::views::reverse | ranges::views::drop(_argsRegionSize));
 			histogram = histogramTail;
@@ -121,7 +122,7 @@ private:
 
 	struct Ops
 	{
-		Ops(Stack const& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut):
+		Ops(Stack<Callback> const& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut):
 			stackStats(_stack, _args.size()),
 			targetMinCounts(detail::histogram(_args)),
 			stack(_stack),
@@ -201,7 +202,7 @@ private:
 
 		StackStats stackStats;
 		std::map<Slot, size_t> targetMinCounts;
-		Stack const& stack;
+		Stack<Callback> const& stack;
 		std::vector<Slot> const& args;
 		LivenessAnalysis::LivenessData const& liveOut;
 	};
@@ -209,7 +210,7 @@ private:
 	// If dupping an ideal slot causes a slot that will still be required to become unreachable, then dup
 	// the latter slot first.
 	// @returns true, if it performed a dup.
-	static bool dupDeepSlotIfRequired(Ops const& _ops, Stack& _stack, bool const _generateJunk)
+	static bool dupDeepSlotIfRequired(Ops const& _ops, Stack<Callback>& _stack, bool const _generateJunk)
 	{
 		// Check if the stack is large enough for anything to potentially become unreachable.
 		if (_stack.size() < ReachableStackDepth - 1)
@@ -300,7 +301,7 @@ private:
 	}
 
 	static bool shuffleStep(
-		Stack& _stack,
+		Stack<Callback>& _stack,
 		std::vector<Slot> const& _args,
 		LivenessAnalysis::LivenessData const& _liveOut,
 		bool const _generateJunk
@@ -312,14 +313,14 @@ private:
 		if (ops.argsRegionIsCorrect())
 		{
 			// Check if any of the args are required in the tail and not there yet
-			bool const argRequiredInTail = [&]
+			bool const needMoreOfAnyArg = [&]
 			{
 				for (auto const& arg: ops.args)
 					if (ops.stackStats.totalCount(arg) < ops.targetMinCount(arg))
 						return true;
 				return false;
 			}();
-			if (argRequiredInTail)
+			if (needMoreOfAnyArg)
 			{
 				// todo whatever we have to dup might not be reachable, check the implications of this in the algorithm:
 				//		we could go stack-too-deep or we could try to compress the args (which might end in a loop?)

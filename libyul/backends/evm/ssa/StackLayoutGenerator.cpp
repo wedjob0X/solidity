@@ -350,7 +350,7 @@ void StackLayoutGenerator::visitBlock(SSACFG::BlockId const& _blockId)
 		if constexpr(debugOutput)
 			std::cout << "{ " << stackToString(liveOutWithoutOutputs | ranges::views::transform(Slot::makeValueID) | ranges::to<std::vector>, m_cfg) << " } + " << stackToString(requiredStackTop, m_cfg) << ") -> " << std::flush;
 
-		OperationForwardShuffler<StackType>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId));
+		OperationForwardShuffler<StackManipulationCallbacks>::shuffle(stack, requiredStackTop, opLiveOutWithoutOutputs, m_junkBlockFinder.blockAllowsAdditionOfJunk(_blockId));
 
 		m_stackLayout[_blockId].operationIn.push_back(currentStackData);
 

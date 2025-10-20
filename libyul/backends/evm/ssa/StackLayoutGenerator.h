@@ -19,7 +19,6 @@ public:
 	{
 		static bool writeCallbackOutput;
 		size_t numOps = 0;
-		using Slot = Slot;
 		void swap(size_t _depth)
 		{
 			++numOps;
