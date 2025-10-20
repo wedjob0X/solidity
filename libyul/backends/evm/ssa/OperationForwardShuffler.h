@@ -11,27 +11,14 @@
 #include <range/v3/view/take.hpp>
 #include <range/v3/range_concepts.hpp>
 
+#include <boost/container/flat_map.hpp>
+
 #include <cstdint>
 #include <map>
 #include <variant>
 
 namespace solidity::yul::ssa
 {
-
-namespace detail
-{
-template<ranges::range Slots, typename Slot = ranges::range_value_t<Slots>>
-std::map<Slot, size_t> histogram(Slots const& _slots)
-{
-	std::map<Slot, size_t> result;
-	for (auto const& slot: _slots)
-	{
-		auto const [it, _] = result.try_emplace(slot);
-		++it->second;
-	}
-	return result;
-}
-}
 
 template<StackManipulationCallbackConcept Callback, size_t ReachableStackDepth=16>
 class OperationForwardShuffler
@@ -48,54 +35,28 @@ public:
 	{
 		yulAssert(ranges::none_of(_args, [](auto const& _slot) { return _slot.isJunk(); }));
 
+		TargetStats const targetStats(_args, _liveOut);
 		constexpr std::size_t maxIterations = 1000;
 		std::size_t i = 0;
-		for (; i < maxIterations && shuffleStep(_stack, _args, _liveOut, _generateJunk); ++i) {}
+		for (; i < maxIterations && shuffleStep(_stack, _args, _liveOut, targetStats, _generateJunk); ++i) {}
 		yulAssert(i < maxIterations, fmt::format("Maximum iterations reached on {}", stackToString(_stack.data())));
 	}
 
 private:
-	static std::ptrdiff_t loss(Stack<Callback>::Data const& _stackData, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut)
-	{
-		std::ptrdiff_t result = 0;
-
-		// every correct slot in the args gets a plus, every incorrect/missing one a minus
-		for (size_t i = 0; i < _args.size(); ++i)
-			if (_stackData.size() > i && _stackData[_stackData.size() - i - 1] == _args[_args.size() - i - 1])
-				++result;
-			else
-				--result;
-		for (auto const& [liveOutValue, _]: _liveOut)
-		{
-			if (_stackData.size() < _args.size())
-				--result;
-
-			auto it = ranges::find(_stackData | ranges::views::reverse | ranges::views::drop(_args.size()), liveOutValue);
-			if (it == ranges::end(_stackData))
-				--result;
-			else
-				++result;
-		}
-
-		return result;
-	}
-
 	struct StackStats
 	{
 		StackStats(Stack<Callback> const& _stack, size_t _argsRegionSize)
 		{
-			histogramTail = detail::histogram(_stack.data() | ranges::views::reverse | ranges::views::drop(_argsRegionSize));
-			histogram = histogramTail;
-			for (Slot const& argsSlot: _stack.data() | ranges::views::reverse | ranges::views::take(_argsRegionSize))
+			histogram.reserve(_stack.size());
+			histogramTail.reserve(_stack.size());
+			histogramArgs.reserve(_argsRegionSize);
+			for (auto const& [i, slot]: _stack | ranges::views::enumerate)
 			{
-				{
-					auto const [it, _] = histogram.try_emplace(argsSlot);
-					++it->second;
-				}
-				{
-					auto const [it, _] = histogramArgs.try_emplace(argsSlot);
-					++it->second;
-				}
+				++histogram[slot];
+				if (_stack.size() >= _argsRegionSize && i < _stack.size() - _argsRegionSize)
+					++histogramTail[slot];
+				else
+					++histogramArgs[slot];
 			}
 		}
 
@@ -115,26 +76,33 @@ private:
 		}
 
 	private:
-		std::map<Slot, size_t> histogramTail;
-		std::map<Slot, size_t> histogramArgs;
-		std::map<Slot, size_t> histogram;
+		boost::container::flat_map<Slot, size_t> histogramTail;
+		boost::container::flat_map<Slot, size_t> histogramArgs;
+		boost::container::flat_map<Slot, size_t> histogram;
 	};
 
+	struct TargetStats
+	{
+		TargetStats(std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut)
+		{
+			targetMinCounts.reserve(_args.size() + _liveOut.size());
+			for (auto const& arg: _args)
+				++targetMinCounts[arg];
+			for (auto const& _liveValueId: _liveOut | ranges::views::keys)
+				++targetMinCounts[Slot::makeValueID(_liveValueId)];
+		}
+
+		boost::container::flat_map<Slot, size_t> targetMinCounts;
+	};
 	struct Ops
 	{
-		Ops(Stack<Callback> const& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut):
+		Ops(Stack<Callback>& _stack, std::vector<Slot> const& _args, LivenessAnalysis::LivenessData const& _liveOut, TargetStats const& _targetStats):
 			stackStats(_stack, _args.size()),
-			targetMinCounts(detail::histogram(_args)),
 			stack(_stack),
 			args(_args),
-			liveOut(_liveOut)
-		{
-			for (auto const& _liveValueId: _liveOut | ranges::views::keys)
-			{
-				auto const [it, _] = targetMinCounts.try_emplace(Slot::makeValueID(_liveValueId));
-				++it->second;
-			}
-		}
+			liveOut(_liveOut),
+			targetStats(_targetStats)
+		{}
 
 		bool argsRegionIsCorrect() const
 		{
@@ -156,7 +124,7 @@ private:
 
 		bool distributionIsCorrect() const
 		{
-			for (auto const& [targetSlot, targetMinCount]: targetMinCounts)
+			for (auto const& [targetSlot, targetMinCount]: targetStats.targetMinCounts)
 				if (stackStats.totalCount(targetSlot) < targetMinCount)
 					return false;
 			return true;
@@ -164,7 +132,7 @@ private:
 
 		size_t targetMinCount(Slot const& _slot) const
 		{
-			return util::valueOrDefault(targetMinCounts, _slot, size_t{0});
+			return util::valueOrDefault(targetStats.targetMinCounts, _slot, size_t{0});
 		}
 
 		size_t targetArgsCount(Slot const& _slot) const
@@ -201,10 +169,10 @@ private:
 		}
 
 		StackStats stackStats;
-		std::map<Slot, size_t> targetMinCounts;
 		Stack<Callback> const& stack;
 		std::vector<Slot> const& args;
 		LivenessAnalysis::LivenessData const& liveOut;
+		TargetStats const& targetStats;
 	};
 
 	// If dupping an ideal slot causes a slot that will still be required to become unreachable, then dup
@@ -304,10 +272,11 @@ private:
 		Stack<Callback>& _stack,
 		std::vector<Slot> const& _args,
 		LivenessAnalysis::LivenessData const& _liveOut,
+		TargetStats const& _targetStats,
 		bool const _generateJunk
 	)
 	{
-		Ops const ops(_stack, _args, _liveOut);
+		Ops const ops(_stack, _args, _liveOut, _targetStats);
 
 		// Check if we have the required top already
 		if (ops.argsRegionIsCorrect())
@@ -551,7 +520,7 @@ private:
 				}
 
 		// now all required slots are present in required quantity
-		for (auto const& [targetSlot, targetSlotMinCount]: ops.targetMinCounts)
+		for (auto const& [targetSlot, targetSlotMinCount]: ops.targetStats.targetMinCounts)
 			yulAssert(ops.stackStats.totalCount(targetSlot) >= targetSlotMinCount);
 
 		auto swappableDepthRange = ranges::views::iota(0u, std::min(ReachableStackDepth + 1u, _stack.size())) | ranges::views::reverse;
