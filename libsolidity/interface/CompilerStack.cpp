@@ -473,7 +473,7 @@ bool CompilerStack::analyze()
 	{
 		bool experimentalSolidity = isExperimentalSolidity();
 
-		SyntaxChecker syntaxChecker(m_errorReporter, m_optimiserSettings.runYulOptimiser);
+		SyntaxChecker syntaxChecker(m_errorReporter, m_optimiserSettings.runYulOptimiser, m_experimental);
 		for (Source const* source: m_sourceOrder)
 			if (source->ast && !syntaxChecker.checkSyntax(*source->ast))
 				noErrors = false;
